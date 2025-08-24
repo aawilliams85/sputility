@@ -1,14 +1,10 @@
-from dataclasses import dataclass
-import zipfile
 import io
 import os
+from typing import List
+import xml.etree.ElementTree as ET
+import zipfile
 
-@dataclass
-class AAArchive:
-    name: str
-    data: bytes
-    path: list[str]
-    size: int
+from . import types
 
 def _path_to_list(path: str, insensitive: bool = True) -> list[str]:
     path = path.replace('\\', '/')
@@ -24,37 +20,121 @@ def _create_subfolders(output_path: str, archive_paths: list[str]):
         os.makedirs(current_path, exist_ok=True)
     return os.path.join(current_path, archive_paths[-1])
 
+def _get_manifest_templates(element: ET.Element) -> types.AAManifestTemplate:
+    # Extract attributes
+    attrs = {
+        'tag_name': element.get('tag_name', ''),
+        'gobjectid': int(element.get('gobjectid', '')),
+        'file_name': element.get('file_name', ''),
+        'config_version': int(element.get('config_version', '')),
+        'codebase': element.get('codebase', ''),
+        'security_group': element.get('security_group', ''),
+        'host_name': element.get('host_name', ''),
+        'area_name': element.get('area_name', ''),
+        'cont_name': element.get('cont_name', ''),
+        'toolset_name': element.get('toolset_name', ''),
+        'is_protected': bool(int(element.get('is_protected', '0')))
+    }
+
+    # Recursively parse derived_templates
+    derived_templates = []
+    dt_element = element.find('derived_templates')
+    if dt_element is not None:
+        for child in dt_element.findall('template'):
+            derived_templates.append(_get_manifest_templates(child))
+
+    # Placeholder for derived_instances
+    derived_instances = []
+
+    return types.AAManifestTemplate(**attrs, derived_templates=derived_templates, derived_instances=derived_instances)
+
+def _print_manifest_template(template: types.AAManifestTemplate, indent: int = 0):
+    prefix = "  " * indent
+    print(f"{prefix}- Template: {template.tag_name} (ID: {template.gobjectid}, File: {template.file_name})")
+
+    # Print derived instances if any (currently placeholders)
+    if template.derived_instances:
+        for instance in template.derived_instances:
+            print(f"{prefix}  * Instance: {instance}")
+
+    # Recursively print derived templates
+    for child in template.derived_templates:
+        _print_manifest_template(child, indent + 1)
+
+def _get_stream_by_name(
+    streams: list[types.AAArchive], 
+    name: str, 
+    case_insensitive: bool
+) -> types.AAArchive:
+    if case_insensitive:
+        return next(x for x in streams if x.name.casefold() == name.casefold())
+    else:
+        return next(x for x in streams if x.name == name)
+
+def _get_manifest(
+    streams: list[types.AAArchive],
+) -> types.AAManifest:
+    stream = _get_stream_by_name(streams, 'Manifest.xml', case_insensitive=False)
+    root = ET.fromstring(stream.data.decode('utf-8'))
+
+    version = types.AAManifestVersion('','')
+    for version_elem in root.findall('product_version'):
+        version = types.AAManifestVersion(
+            cdi_version=version_elem.get('cdiversion', ''),
+            ias_version=version_elem.get('iasversion', '')
+        )
+
+    templates = []
+    for template_elem in root.findall('template'):
+        templates.append(_get_manifest_templates(template_elem))
+
+    bindings = types.AAManifestIOMap('')
+    for bindings_elem in root.findall('IODeviceMap'):
+        bindings = types.AAManifestIOMap(
+            filename=bindings_elem.get('filename', '')
+        )
+
+    object_count = 0
+    for object_count_elem in root.findall('TotalObjectCount'):
+        object_count = int(object_count_elem.get('objectcount', ''))
+
+    manifest = types.AAManifest(
+        product_version=version,
+        templates=templates,
+        bindings=bindings,
+        object_count=object_count
+    )
+    return manifest
+
+
 def decompress_cab(
     file: zipfile.ZipFile,
     prefix: str
-) -> list[AAArchive]:
-    streams: list[AAArchive] = []
+) -> list[types.AAArchive]:
+    streams: list[types.AAArchive] = []
     for info in file.infolist():
         if info.is_dir():
             continue
         data = file.read(info.filename)
         file_path = f'{prefix}/{info.filename}'
         file_path_list = _path_to_list(path=file_path, insensitive=False)
-        streams.append(AAArchive(
+        streams.append(types.AAArchive(
             name=file_path_list[-1],
             data=data,
             path=file_path_list,
             size=len(data)
         ))
-    for stream in streams:
-        print(stream.name)
     return streams
 
 def decompress_aapkg(
     file: zipfile.ZipFile
-) -> list[AAArchive]:
-    streams: list[AAArchive] = []
+) -> list[types.AAArchive]:
+    streams: list[types.AAArchive] = []
     file_name, file_ext = os.path.splitext(str(file.filename))
     for stream_path in file.namelist():
         with io.BytesIO(file.read(stream_path)) as package_bytes:
             with zipfile.ZipFile(package_bytes) as cab_zip:
                 cab_prefix = f'{os.path.basename(file_name)}/{stream_path}'
-                print(cab_prefix)
                 streams.extend(decompress_cab(file=cab_zip,prefix=cab_prefix))
     return streams
     
@@ -70,6 +150,8 @@ def archive_to_disk(
 
     with zipfile.ZipFile(file_path, 'r') as archive:
         streams = decompress_aapkg(file=archive)
+        manifest = _get_manifest(streams)
+        print(manifest)
         for stream in streams:
             stream_output_path = _create_subfolders(output_path, stream.path)
             with open(stream_output_path, 'wb') as f:
