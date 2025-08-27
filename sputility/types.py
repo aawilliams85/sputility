@@ -1,18 +1,18 @@
 from dataclasses import dataclass, field
 
 @dataclass
-class AAArchive:
+class AaArchive:
     name: str
     data: bytes
     path: list[str]
     size: int
 
 @dataclass
-class AAManifestIOMap:
+class AaManifestIODeviceMap:
     filename: str
 
 @dataclass
-class AAManifestTemplate:
+class AaManifestTemplate:
     tag_name: str
     gobjectid: int
     file_name: str
@@ -24,17 +24,17 @@ class AAManifestTemplate:
     cont_name: str
     toolset_name: str
     is_protected: bool
-    derived_templates: list['AAManifestTemplate'] = field(default_factory=list)
+    derived_templates: list['AaManifestTemplate'] = field(default_factory=list)
     derived_instances: list['str'] = field(default_factory=list)
 
 @dataclass
-class AAManifestVersion:
+class AaManifestVersion:
     cdi_version: str
     ias_version: str
 
 @dataclass
-class AAManifest:
-    product_version: AAManifestVersion
-    templates: list[AAManifestTemplate]
-    bindings: AAManifestIOMap
+class AaManifest:
+    product_version: AaManifestVersion
+    templates: list[AaManifestTemplate]
+    bindings: AaManifestIODeviceMap
     object_count: int

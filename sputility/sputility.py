@@ -20,7 +20,7 @@ def _create_subfolders(output_path: str, archive_paths: list[str]):
         os.makedirs(current_path, exist_ok=True)
     return os.path.join(current_path, archive_paths[-1])
 
-def _get_manifest_templates(element: ET.Element) -> types.AAManifestTemplate:
+def _get_manifest_templates(element: ET.Element) -> types.AaManifestTemplate:
     # Extract attributes
     attrs = {
         'tag_name': element.get('tag_name', ''),
@@ -46,9 +46,9 @@ def _get_manifest_templates(element: ET.Element) -> types.AAManifestTemplate:
     # Placeholder for derived_instances
     derived_instances = []
 
-    return types.AAManifestTemplate(**attrs, derived_templates=derived_templates, derived_instances=derived_instances)
+    return types.AaManifestTemplate(**attrs, derived_templates=derived_templates, derived_instances=derived_instances)
 
-def _print_manifest_template(template: types.AAManifestTemplate, indent: int = 0):
+def _print_manifest_template(template: types.AaManifestTemplate, indent: int = 0):
     prefix = "  " * indent
     print(f"{prefix}- Template: {template.tag_name} (ID: {template.gobjectid}, File: {template.file_name})")
 
@@ -62,24 +62,24 @@ def _print_manifest_template(template: types.AAManifestTemplate, indent: int = 0
         _print_manifest_template(child, indent + 1)
 
 def _get_stream_by_name(
-    streams: list[types.AAArchive], 
+    streams: list[types.AaArchive], 
     name: str, 
     case_insensitive: bool
-) -> types.AAArchive:
+) -> types.AaArchive:
     if case_insensitive:
         return next(x for x in streams if x.name.casefold() == name.casefold())
     else:
         return next(x for x in streams if x.name == name)
 
 def _get_manifest(
-    streams: list[types.AAArchive],
-) -> types.AAManifest:
+    streams: list[types.AaArchive],
+) -> types.AaManifest:
     stream = _get_stream_by_name(streams, 'Manifest.xml', case_insensitive=False)
     root = ET.fromstring(stream.data.decode('utf-8'))
 
-    version = types.AAManifestVersion('','')
+    version = types.AaManifestVersion('','')
     for version_elem in root.findall('product_version'):
-        version = types.AAManifestVersion(
+        version = types.AaManifestVersion(
             cdi_version=version_elem.get('cdiversion', ''),
             ias_version=version_elem.get('iasversion', '')
         )
@@ -88,9 +88,9 @@ def _get_manifest(
     for template_elem in root.findall('template'):
         templates.append(_get_manifest_templates(template_elem))
 
-    bindings = types.AAManifestIOMap('')
+    bindings = types.AaManifestIODeviceMap('')
     for bindings_elem in root.findall('IODeviceMap'):
-        bindings = types.AAManifestIOMap(
+        bindings = types.AaManifestIODeviceMap(
             filename=bindings_elem.get('filename', '')
         )
 
@@ -98,7 +98,7 @@ def _get_manifest(
     for object_count_elem in root.findall('TotalObjectCount'):
         object_count = int(object_count_elem.get('objectcount', ''))
 
-    manifest = types.AAManifest(
+    manifest = types.AaManifest(
         product_version=version,
         templates=templates,
         bindings=bindings,
@@ -110,15 +110,15 @@ def _get_manifest(
 def decompress_cab(
     file: zipfile.ZipFile,
     prefix: str
-) -> list[types.AAArchive]:
-    streams: list[types.AAArchive] = []
+) -> list[types.AaArchive]:
+    streams: list[types.AaArchive] = []
     for info in file.infolist():
         if info.is_dir():
             continue
         data = file.read(info.filename)
         file_path = f'{prefix}/{info.filename}'
         file_path_list = _path_to_list(path=file_path, insensitive=False)
-        streams.append(types.AAArchive(
+        streams.append(types.AaArchive(
             name=file_path_list[-1],
             data=data,
             path=file_path_list,
@@ -128,8 +128,8 @@ def decompress_cab(
 
 def decompress_aapkg(
     file: zipfile.ZipFile
-) -> list[types.AAArchive]:
-    streams: list[types.AAArchive] = []
+) -> list[types.AaArchive]:
+    streams: list[types.AaArchive] = []
     file_name, file_ext = os.path.splitext(str(file.filename))
     for stream_path in file.namelist():
         with io.BytesIO(file.read(stream_path)) as package_bytes:
