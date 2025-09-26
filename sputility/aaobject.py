@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from enum import IntEnum
 import os
+import pprint
 import struct
 
 class AaObjAttrTypeEnum(IntEnum):
@@ -29,6 +30,12 @@ class AaObjHeader:
     this_gobjectid: int
     security_group: str
     parent_gobjectid: int
+    tagname: str
+    contained_name: str
+    config_version: int
+    hierarchal_name: str
+    area_name: str
+    container_name: str
 
 @dataclass
 class AaObjAttrHeader:
@@ -54,60 +61,107 @@ def get_header(input: bytes) -> AaObjHeader:
     offset = 0
 
     # Base Object ID (ex: UserDefined or other built-in object)
-    base_gobjectid = int.from_bytes(input[offset:offset + 4], 'little')
-    offset += 4
+    length = 4
+    base_gobjectid = int.from_bytes(input[offset:offset + length], 'little')
+    offset += length
 
     # If this is a template there will be four null bytes
     # Otherwise if those bytes are missing, it is an instance
-    check_is_template = int.from_bytes(input[offset:offset + 4], 'little')
+    length = 4
+    check_is_template = int.from_bytes(input[offset:offset + length], 'little')
     if check_is_template:
         is_template = False
     else:
         is_template = True
-        offset += 4
+        offset += length
 
     # Unknown
-    unk01 = int.from_bytes(input[offset: offset + 4], 'little')
     offset += 4
 
     # Object ID
-    this_gobjectid = int.from_bytes(input[offset:offset + 4], 'little')
-    offset += 4
+    length = 4
+    this_gobjectid = int.from_bytes(input[offset:offset + length], 'little')
+    offset += length
 
     # Unknown
-    unk02 = int.from_bytes(input[offset: offset + 4], 'little')
-    offset += 4
-
-    # Unknown
-    unk03 = int.from_bytes(input[offset: offset + 8], 'little')
-    offset += 8
+    offset += 12
 
     # Security Group name
-    security_group = input[offset: offset + 64].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += 64
+    length = 64
+    security_group = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    offset += length
 
     # Unknown
-    unk04 = int.from_bytes(input[offset: offset + 4], 'little')
-    offset += 4
-
-    # Unknown
-    unk05 = int.from_bytes(input[offset: offset + 4], 'little')
-    offset += 4
-
-    # Unknown
-    unk06 = int.from_bytes(input[offset: offset + 4], 'little')
-    offset += 4
+    offset += 12
 
     # Parent Template ID
-    parent_gobject_id = int.from_bytes(input[offset: offset + 4], 'little')
+    length = 4
+    parent_gobject_id = int.from_bytes(input[offset: offset + length], 'little')
+    offset += length
+
+    # Unknown
+    offset += 52
+
+    # Security Group name
+    length = 64
+    tagname = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    offset += length
+
+    # Unknown
+    offset += 596
+
+    # Contained Name
+    length = 64
+    contained_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    offset += length
+
+    # Unknown
     offset += 4
+
+    # Unknown
+    offset += 32
+
+    # Config Version
+    length = 4
+    config_version = int.from_bytes(input[offset: offset + length], 'little')
+    offset += length
+
+    # Unknown
+    offset += 16
+
+    # Hierarchal Name
+    length = 130
+    hierarchal_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    offset += length
+
+    # Unknown
+    offset += 530
+
+    # Area Name
+    length = 64
+    area_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    offset += length
+
+    # Unknown
+    offset += 2
+
+    # Container Name
+    length = 64
+    container_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    offset += length
 
     return AaObjHeader(
         base_gobjectid=base_gobjectid,
         is_template=is_template,
         this_gobjectid=this_gobjectid,
         security_group=security_group,
-        parent_gobjectid=parent_gobject_id
+        parent_gobjectid=parent_gobject_id,
+        tagname=tagname,
+        contained_name=contained_name,
+        config_version=config_version,
+        hierarchal_name=hierarchal_name,
+        area_name=area_name,
+        container_name=container_name
     )
 
 def explode_aaobject(
@@ -131,4 +185,5 @@ def explode_aaobject(
         raise TypeError('Input must be a file path (str/PathLike) or bytes.')
     
     header = get_header(aaobject_bytes)
-    print(header)
+    pprint.pprint(header)
+    print('')
