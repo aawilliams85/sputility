@@ -89,13 +89,13 @@ def _seek_float(input: AaObjBin) -> float:
     length = 4
     value = struct.unpack('<f', input.data[input.offset:input.offset + length])
     input.offset += length
-    return value
+    return value[0]
 
 def _seek_double(input: AaObjBin) -> float:
     length = 8
     value = struct.unpack('<d', input.data[input.offset:input.offset + length])
     input.offset += length
-    return value
+    return value[0]
 
 def _seek_int(input: AaObjBin, length: int = 4) -> int:
     value = int.from_bytes(input.data[input.offset:input.offset + length], 'little')
@@ -164,8 +164,16 @@ def _get_header(input: AaObjBin) -> AaObjHeader:
     based_on = _seek_string(input=input)
     _seek_pad(input=input, length=528)
     galaxy_name = _seek_string_var_len(input=input)
-    print(f'Offset: {input.offset}')
-    _seek_pad(input=input, length=1354)
+
+    # Trying to figure out whether this first
+    # byte being inserted means it is a template.
+    #
+    # Instances seem to be one byte shorter in this section.
+    may_be_is_template = not(bool(_seek_int(input=input, length=1)))
+    if may_be_is_template:
+        _seek_pad(input=input, length=1353)
+    else:
+        _seek_pad(input=input, length=1352)
 
     return AaObjHeader(
         base_gobjectid=base_gobjectid,
@@ -233,9 +241,7 @@ def _get_attrs(input: AaObjBin) -> AaObjSection:
     template_name = _seek_string(input=input)
     _seek_pad(input=input, length=596)
     attr_section_id = _seek_int(input=input, length=16)
-    print(f'Count Offset: {input.offset}')
     attr_count = _seek_int(input=input)
-    print(attr_count)
     attrs = []
     if attr_count > 0:
         for i in range(attr_count):
