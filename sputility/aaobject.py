@@ -24,6 +24,11 @@ class AaObjAttrTypeEnum(IntEnum):
     BigStringType = 16
 
 @dataclass
+class AaObj:
+    data: bytes
+    offset: int
+
+@dataclass
 class AaObjHeader:
     base_gobjectid: int
     is_template: bool
@@ -34,8 +39,12 @@ class AaObjHeader:
     contained_name: str
     config_version: int
     hierarchal_name: str
-    area_name: str
+    host_name: str
     container_name: str
+    area_name: str
+    derived_from: str
+    based_on: str
+    galaxy_name: str
 
 @dataclass
 class AaObjAttrHeader:
@@ -57,98 +66,68 @@ class AaObjAttrHeader:
     magic: bytes
     data: bytes
 
-def get_header(input: bytes) -> AaObjHeader:
-    offset = 0
+def _seek_pad(input: AaObj, length: int):
+    input.offset += length
 
-    # Base Object ID (ex: UserDefined or other built-in object)
+def _seek_fixed_int(input: AaObj, length: int = 4) -> int:
+    value = int.from_bytes(input.data[input.offset:input.offset + length], 'little')
+    input.offset += length
+    return value
+
+def _seek_fixed_string(input: AaObj, length: int = 64) -> str:
+    value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    input.offset += length
+    return value
+
+def _seek_variable_string(input: AaObj) -> str:
     length = 4
-    base_gobjectid = int.from_bytes(input[offset:offset + length], 'little')
-    offset += length
+    str_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
+    input.offset += length
+    length = str_len
+    value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    input.offset += length
+    return value
+
+def get_header(input: AaObj) -> AaObjHeader:
+    # Base Object ID (ex: UserDefined or other built-in object)
+    base_gobjectid = _seek_fixed_int(input=input)
 
     # If this is a template there will be four null bytes
     # Otherwise if those bytes are missing, it is an instance
-    length = 4
-    check_is_template = int.from_bytes(input[offset:offset + length], 'little')
+    check_is_template = _seek_fixed_int(input=input)
     if check_is_template:
         is_template = False
+        input.offset -= 4
     else:
         is_template = True
-        offset += length
 
-    # Unknown
-    offset += 4
-
-    # Object ID
-    length = 4
-    this_gobjectid = int.from_bytes(input[offset:offset + length], 'little')
-    offset += length
-
-    # Unknown
-    offset += 12
-
-    # Security Group name
-    length = 64
-    security_group = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += length
-
-    # Unknown
-    offset += 12
-
-    # Parent Template ID
-    length = 4
-    parent_gobject_id = int.from_bytes(input[offset: offset + length], 'little')
-    offset += length
-
-    # Unknown
-    offset += 52
-
-    # Security Group name
-    length = 64
-    tagname = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += length
-
-    # Unknown
-    offset += 596
-
-    # Contained Name
-    length = 64
-    contained_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += length
-
-    # Unknown
-    offset += 4
-
-    # Unknown
-    offset += 32
-
-    # Config Version
-    length = 4
-    config_version = int.from_bytes(input[offset: offset + length], 'little')
-    offset += length
-
-    # Unknown
-    offset += 16
-
-    # Hierarchal Name
-    length = 130
-    hierarchal_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += length
-
-    # Unknown
-    offset += 530
-
-    # Area Name
-    length = 64
-    area_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += length
-
-    # Unknown
-    offset += 2
-
-    # Container Name
-    length = 64
-    container_name = input[offset: offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    offset += length
+    _seek_pad(input=input, length=4)
+    this_gobjectid = _seek_fixed_int(input=input)
+    _seek_pad(input=input, length=12)
+    security_group = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=12)
+    parent_gobject_id = _seek_fixed_int(input=input)
+    _seek_pad(input=input, length=52)
+    tagname = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=596)
+    contained_name = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=4)
+    _seek_pad(input=input, length=32)
+    config_version = _seek_fixed_int(input=input)
+    _seek_pad(input=input, length=16)
+    hierarchal_name = _seek_fixed_string(input=input, length=130)
+    _seek_pad(input=input, length=530)
+    host_name = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=2)
+    container_name = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=596)
+    area_name = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=2)
+    derived_from = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=596)
+    based_on = _seek_fixed_string(input=input)
+    _seek_pad(input=input, length=528)
+    galaxy_name = _seek_variable_string(input=input)
 
     return AaObjHeader(
         base_gobjectid=base_gobjectid,
@@ -160,8 +139,12 @@ def get_header(input: bytes) -> AaObjHeader:
         contained_name=contained_name,
         config_version=config_version,
         hierarchal_name=hierarchal_name,
+        host_name=host_name,
+        container_name=container_name,
         area_name=area_name,
-        container_name=container_name
+        derived_from=derived_from,
+        based_on=based_on,
+        galaxy_name=galaxy_name
     )
 
 def explode_aaobject(
@@ -184,6 +167,10 @@ def explode_aaobject(
     else:
         raise TypeError('Input must be a file path (str/PathLike) or bytes.')
     
-    header = get_header(aaobject_bytes)
+    aaobj = AaObj(
+        data=aaobject_bytes,
+        offset=0
+    )
+    header = get_header(input=aaobj)
     pprint.pprint(header)
     print('')
