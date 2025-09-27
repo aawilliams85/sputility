@@ -34,11 +34,12 @@ class AaObjTypeEnum(IntEnum):
     InternationalizedStringType = 15
     BigStringType = 16
 
-class AaObjWriteabilityEnum(IntEnum):
-    Calculated = 0
-    CalculatedRetentive = 1
-    ObjectWriteable = 2
-    UserWriteable = 3
+class AaObjWriteEnum(IntEnum):
+    Calculated = 2
+    CalculatedRetentive = 3
+    ObjectWriteable = 5
+    UserWriteable = 10
+    ConfigOnly = 11
 
 @dataclass
 class AaObjBin:
@@ -68,6 +69,7 @@ class AaObjAttr:
     name: str
     datatype: AaObjTypeEnum
     permission: AaObjPermEnum
+    write: AaObjWriteEnum
     locked: bool
     parent_gobjectid: int
     parent_name: str
@@ -233,11 +235,15 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     _seek_pad(input=input, length=4)
     name = _seek_string_var_len(input=input, length=2, mult=2)
     datatype = _seek_int(input=input, length=1)
+
+    # It seems like these are probably four-bytes eache
+    # but the enum ranges are small so maybe some bytes
+    # are really reserved?
     _seek_pad(input=input, length=4)
-    permission = _seek_int(input=input, length=1)
-    _seek_pad(input=input, length=7)
-    locked = bool(_seek_int(input=input, length=1))
-    _seek_pad(input=input, length=3)
+    permission = _seek_int(input=input)
+    write = _seek_int(input=input)
+    locked = bool(_seek_int(input=input))
+
     parent_gobjectid = _seek_int(input=input, length=4)
     _seek_pad(input=input, length=8)
     parent_name = _seek_string_var_len(input=input, length=2, mult=2)
@@ -268,10 +274,12 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
         case _:
             raise NotImplementedError()
 
+    print(f'{name} {write}')
     return AaObjAttr(
         name=name,
         datatype=AaObjTypeEnum(datatype),
         permission=AaObjPermEnum(permission),
+        write=AaObjWriteEnum(write),
         locked=locked,
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
