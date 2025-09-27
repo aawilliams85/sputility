@@ -6,7 +6,16 @@ import pprint
 import struct
 from zoneinfo import ZoneInfo
 
-class AaObjAttrTypeEnum(IntEnum):
+class AaObjPermEnum(IntEnum):
+    FreeAccess = 0
+    Operate = 1
+    SecuredWrite = 2
+    VerifiedWrite = 3
+    Tune = 4
+    Configure = 5
+    ViewOnly = 6
+
+class AaObjTypeEnum(IntEnum):
     NoneType = 0
     BooleanType = 1
     IntegerType = 2
@@ -24,6 +33,12 @@ class AaObjAttrTypeEnum(IntEnum):
     QualifiedStructType = 14
     InternationalizedStringType = 15
     BigStringType = 16
+
+class AaObjWriteabilityEnum(IntEnum):
+    Calculated = 0
+    CalculatedRetentive = 1
+    ObjectWriteable = 2
+    UserWriteable = 3
 
 @dataclass
 class AaObjBin:
@@ -51,7 +66,8 @@ class AaObjHeader:
 @dataclass
 class AaObjAttr:
     name: str
-    datatype: AaObjAttrTypeEnum
+    datatype: AaObjTypeEnum
+    permission: AaObjPermEnum
     locked: bool
     parent_gobjectid: int
     parent_name: str
@@ -217,7 +233,9 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     _seek_pad(input=input, length=4)
     name = _seek_string_var_len(input=input, length=2, mult=2)
     datatype = _seek_int(input=input, length=1)
-    _seek_pad(input=input, length=12)
+    _seek_pad(input=input, length=4)
+    permission = _seek_int(input=input, length=1)
+    _seek_pad(input=input, length=7)
     locked = bool(_seek_int(input=input, length=1))
     _seek_pad(input=input, length=3)
     parent_gobjectid = _seek_int(input=input, length=4)
@@ -227,32 +245,33 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     _seek_pad(input=input, length=17)
     data = None
     match datatype:
-        case AaObjAttrTypeEnum.NoneType.value:
+        case AaObjTypeEnum.NoneType.value:
             raise NotImplementedError()
-        case AaObjAttrTypeEnum.BooleanType.value:
+        case AaObjTypeEnum.BooleanType.value:
             data = bool(_seek_int(input=input, length=1))
-        case AaObjAttrTypeEnum.IntegerType.value:
+        case AaObjTypeEnum.IntegerType.value:
             data = _seek_int(input=input, length=4)
-        case AaObjAttrTypeEnum.FloatType.value:
+        case AaObjTypeEnum.FloatType.value:
             data = _seek_float(input=input)
-        case AaObjAttrTypeEnum.DoubleType.value:
+        case AaObjTypeEnum.DoubleType.value:
             data = _seek_double(input=input)
-        case AaObjAttrTypeEnum.StringType.value:
+        case AaObjTypeEnum.StringType.value:
             data = _seek_string_value_section(input=input)
-        case AaObjAttrTypeEnum.TimeType.value:
+        case AaObjTypeEnum.TimeType.value:
             data = _seek_datetime_var_len(input=input)
-        case AaObjAttrTypeEnum.ElapsedTimeType.value:
+        case AaObjTypeEnum.ElapsedTimeType.value:
             data = _seek_int(input=input, length=8)
-        case AaObjAttrTypeEnum.InternationalizedStringType.value:
+        case AaObjTypeEnum.InternationalizedStringType.value:
             data = _seek_international_string_value_section(input=input)
-        case AaObjAttrTypeEnum.BigStringType.value:
+        case AaObjTypeEnum.BigStringType.value:
             raise NotImplementedError()
         case _:
             raise NotImplementedError()
 
     return AaObjAttr(
         name=name,
-        datatype=AaObjAttrTypeEnum(datatype),
+        datatype=AaObjTypeEnum(datatype),
+        permission=AaObjPermEnum(permission),
         locked=locked,
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
