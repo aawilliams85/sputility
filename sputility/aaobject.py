@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 import os
 import pprint
 import struct
+from zoneinfo import ZoneInfo
 
 class AaObjAttrTypeEnum(IntEnum):
     NoneType = 0
@@ -52,7 +54,7 @@ class AaObjAttr:
     datatype: AaObjAttrTypeEnum
     parent_gobjectid: int
     parent_name: str
-    data: bool | int | float | str
+    data: bool | int | float | str | datetime | timedelta
 
 @dataclass
 class AaObjSection:
@@ -61,41 +63,40 @@ class AaObjSection:
     attr_section_id: int
     attr_count: int
     attr_section: list[AaObjAttr]
+    short_desc: str         # <Obj>.ShortDesc
 
-@dataclass
-class AaObjAttrHeader:
-    unk01: int
-    unk02: int
-    name_len: int
-    name: str
-    datatype: AaObjAttrTypeEnum
-    unk03: int
-    unk04: int
-    unk05: int
-    unk06: int
-    parent_gobjectid: int
-    unk07: int
-    unk08: int
-    parent_name_len: int
-    parent_name: str
-    unk09: int
-    magic: bytes
-    data: bytes
+def _filetime_to_datetime(input: bytes) -> datetime:
+    filetime = struct.unpack('<Q', input[:8])[0]
+    seconds = filetime // 10000000
+    microseconds = (filetime % 10000000) // 10
+    dt_utc = datetime(1601, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seconds, microseconds=microseconds)
+    return dt_utc
 
 def _seek_pad(input: AaObjBin, length: int):
     input.offset += length
 
+def _seek_bytes(input: AaObjBin, length: int = 4) -> AaObjBin:
+    obj_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
+    input.offset += length
+    length = obj_len
+    value = input.data[input.offset:input.offset + length]
+    input.offset += length
+    return AaObjBin(
+        data=value,
+        offset=0
+    )
+
 def _seek_float(input: AaObjBin) -> float:
     length = 4
-    value = struct.unpack('<f', input.data[input.offset:input.offset + length])
+    value = struct.unpack('<f', input.data[input.offset:input.offset + length])[0]
     input.offset += length
-    return value[0]
+    return value
 
 def _seek_double(input: AaObjBin) -> float:
     length = 8
-    value = struct.unpack('<d', input.data[input.offset:input.offset + length])
+    value = struct.unpack('<d', input.data[input.offset:input.offset + length])[0]
     input.offset += length
-    return value[0]
+    return value
 
 def _seek_int(input: AaObjBin, length: int = 4) -> int:
     value = int.from_bytes(input.data[input.offset:input.offset + length], 'little')
@@ -103,9 +104,9 @@ def _seek_int(input: AaObjBin, length: int = 4) -> int:
     return value
 
 def _seek_int_var_len(input: AaObjBin, length: int = 4) -> int:
-    int_Len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
+    int_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
     input.offset += length
-    length = int_Len
+    length = int_len
     value = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
     input.offset += length
     return value
@@ -122,6 +123,32 @@ def _seek_string_var_len(input: AaObjBin, length: int = 4, mult: int = 1) -> str
     input.offset += length
     length = str_len * mult
     value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
+    input.offset += length
+    return value
+
+def _seek_string_value_section(input: AaObjBin, length: int = 4) -> str:
+    # Buried inside the attribute section, there are string fields
+    # where it is <length of object><length of string><string data>
+    obj = _seek_bytes(input=input)
+    value = _seek_string_var_len(input=obj)
+    return value
+
+def _seek_international_string_value_section(input: AaObjBin, length: int = 4) -> str:
+    # Buried inside the attribute section, there are string fields
+    # where it is <length of object><1><language id><length of string><string data>
+    #
+    # Would need to look at a multi-lang application to see how this changes
+    obj = _seek_bytes(input=input)
+    index = _seek_int(input=obj)
+    locale_id = _seek_int(input=obj)
+    value = _seek_string_var_len(input=obj)
+    return value
+
+def _seek_datetime_var_len(input: AaObjBin, length: int = 4) -> datetime:
+    dt_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
+    input.offset += length
+    length = dt_len
+    value = _filetime_to_datetime(input.data[input.offset: input.offset + length])
     input.offset += length
     return value
 
@@ -216,13 +243,13 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
         case AaObjAttrTypeEnum.DoubleType.value:
             data = _seek_double(input=input)
         case AaObjAttrTypeEnum.StringType.value:
-            data = _seek_string_var_len(input=input)
+            data = _seek_string_value_section(input=input)
         case AaObjAttrTypeEnum.TimeType.value:
-            data = _seek_int_var_len(input=input)
+            data = _seek_datetime_var_len(input=input)
         case AaObjAttrTypeEnum.ElapsedTimeType.value:
             data = _seek_int(input=input, length=8)
         case AaObjAttrTypeEnum.InternationalizedStringType.value:
-            data = _seek_string_var_len(input=input)
+            data = _seek_international_string_value_section(input=input)
         case AaObjAttrTypeEnum.BigStringType.value:
             raise NotImplementedError()
         case _:
@@ -253,7 +280,8 @@ def _get_attrs(input: AaObjBin) -> AaObjSection:
         template_name=template_name,
         attr_section_id=attr_section_id,
         attr_count=attr_count,
-        attr_section=attrs
+        attr_section=attrs,
+        short_desc=''
     )
 
 def explode_aaobject(
