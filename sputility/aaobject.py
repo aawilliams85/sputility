@@ -33,6 +33,8 @@ class AaObjTypeEnum(IntEnum):
     QualifiedStructType = 14
     InternationalizedStringType = 15
     BigStringType = 16
+    ArrayBooleanType = 65
+    ArrayIntegerType = 66
 
 class AaObjWriteEnum(IntEnum):
     Calculated = 2
@@ -67,13 +69,15 @@ class AaObjHeader:
 @dataclass
 class AaObjAttr:
     name: str
-    datatype: AaObjTypeEnum
+    attr_type: AaObjTypeEnum
+    array: bool
     permission: AaObjPermEnum
     write: AaObjWriteEnum
     locked: bool
     parent_gobjectid: int
     parent_name: str
-    data: bool | int | float | str | datetime | timedelta
+    value_type: AaObjTypeEnum
+    value: bool | int | float | str | datetime | timedelta | list
 
 @dataclass
 class AaObjSection:
@@ -163,6 +167,28 @@ def _seek_datetime_var_len(input: AaObjBin, length: int = 4) -> datetime:
     input.offset += length
     return value
 
+def _seek_array(input: AaObjBin) -> list:
+    _seek_pad(input=input, length=4)
+    array_length = _seek_int(input=input, length=2)
+    element_length = _seek_int(input=input, length=4)
+    value = []
+    for i in range(array_length):
+        value.append(input.data[input.offset:input.offset + element_length])
+        input.offset += element_length
+    return value
+
+def _seek_array_bool(input: AaObjBin) -> list[bool]:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(bool(int.from_bytes(x, 'little')))
+    return value
+
+def _seek_array_int(input: AaObjBin) -> list[int]:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(int.from_bytes(x, 'little'))
+    return value
+
 def _get_header(input: AaObjBin) -> AaObjHeader:
     base_gobjectid = _seek_int(input=input)
 
@@ -234,12 +260,12 @@ def _get_header(input: AaObjBin) -> AaObjHeader:
 def _get_attr(input: AaObjBin) -> AaObjAttr:
     _seek_pad(input=input, length=4)
     name = _seek_string_var_len(input=input, length=2, mult=2)
-    datatype = _seek_int(input=input, length=1)
+    attr_type = _seek_int(input=input, length=1)
 
     # It seems like these are probably four-bytes eache
     # but the enum ranges are small so maybe some bytes
     # are really reserved?
-    _seek_pad(input=input, length=4)
+    array = bool(_seek_int(input=input))
     permission = _seek_int(input=input)
     write = _seek_int(input=input)
     locked = bool(_seek_int(input=input))
@@ -248,42 +274,49 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     _seek_pad(input=input, length=8)
     parent_name = _seek_string_var_len(input=input, length=2, mult=2)
     _seek_pad(input=input, length=2)
-    _seek_pad(input=input, length=17)
-    data = None
-    match datatype:
+    _seek_pad(input=input, length=16)
+    value_type = _seek_int(input=input, length=1)
+    value = None
+    match value_type:
         case AaObjTypeEnum.NoneType.value:
             raise NotImplementedError()
         case AaObjTypeEnum.BooleanType.value:
-            data = bool(_seek_int(input=input, length=1))
+            value = bool(_seek_int(input=input, length=1))
         case AaObjTypeEnum.IntegerType.value:
-            data = _seek_int(input=input, length=4)
+            value = _seek_int(input=input, length=4)
         case AaObjTypeEnum.FloatType.value:
-            data = _seek_float(input=input)
+            value = _seek_float(input=input)
         case AaObjTypeEnum.DoubleType.value:
-            data = _seek_double(input=input)
+            value = _seek_double(input=input)
         case AaObjTypeEnum.StringType.value:
-            data = _seek_string_value_section(input=input)
+            value = _seek_string_value_section(input=input)
         case AaObjTypeEnum.TimeType.value:
-            data = _seek_datetime_var_len(input=input)
+            value = _seek_datetime_var_len(input=input)
         case AaObjTypeEnum.ElapsedTimeType.value:
-            data = _seek_int(input=input, length=8)
+            value = _seek_int(input=input, length=8)
         case AaObjTypeEnum.InternationalizedStringType.value:
-            data = _seek_international_string_value_section(input=input)
+            value = _seek_international_string_value_section(input=input)
         case AaObjTypeEnum.BigStringType.value:
             raise NotImplementedError()
+        case AaObjTypeEnum.ArrayBooleanType.value:
+            value = _seek_array_bool(input=input)
+        case AaObjTypeEnum.ArrayIntegerType.value:
+            value = _seek_array_int(input=input)
         case _:
             raise NotImplementedError()
 
-    print(f'{name} {write}')
+    print(f'{name} {array} {permission} {write} {locked} {attr_type} {value_type}')
     return AaObjAttr(
         name=name,
-        datatype=AaObjTypeEnum(datatype),
+        attr_type=AaObjTypeEnum(attr_type),
+        array=array,
         permission=AaObjPermEnum(permission),
         write=AaObjWriteEnum(write),
         locked=locked,
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
-        data=data
+        value_type=AaObjTypeEnum(value_type),
+        value=value
     )
 
 def _get_attrs(input: AaObjBin) -> AaObjSection:
