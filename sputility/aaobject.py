@@ -52,6 +52,7 @@ class AaObjHeader:
 class AaObjAttr:
     name: str
     datatype: AaObjAttrTypeEnum
+    locked: bool
     parent_gobjectid: int
     parent_name: str
     data: bool | int | float | str | datetime | timedelta
@@ -100,14 +101,6 @@ def _seek_double(input: AaObjBin) -> float:
 
 def _seek_int(input: AaObjBin, length: int = 4) -> int:
     value = int.from_bytes(input.data[input.offset:input.offset + length], 'little')
-    input.offset += length
-    return value
-
-def _seek_int_var_len(input: AaObjBin, length: int = 4) -> int:
-    int_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
-    input.offset += length
-    length = int_len
-    value = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
     input.offset += length
     return value
 
@@ -224,7 +217,9 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     _seek_pad(input=input, length=4)
     name = _seek_string_var_len(input=input, length=2, mult=2)
     datatype = _seek_int(input=input, length=1)
-    _seek_pad(input=input, length=16)
+    _seek_pad(input=input, length=12)
+    locked = bool(_seek_int(input=input, length=1))
+    _seek_pad(input=input, length=3)
     parent_gobjectid = _seek_int(input=input, length=4)
     _seek_pad(input=input, length=8)
     parent_name = _seek_string_var_len(input=input, length=2, mult=2)
@@ -258,6 +253,7 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     return AaObjAttr(
         name=name,
         datatype=AaObjAttrTypeEnum(datatype),
+        locked=locked,
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
         data=data
