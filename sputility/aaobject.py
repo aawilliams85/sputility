@@ -35,6 +35,11 @@ class AaObjTypeEnum(IntEnum):
     BigStringType = 16
     ArrayBooleanType = 65
     ArrayIntegerType = 66
+    ArrayFloatType = 67
+    ArrayDoubleType = 68
+    ArrayStringType = 69
+    ArrayTimeType = 70
+    ArrayElapsedTimeType = 71
 
 class AaObjWriteEnum(IntEnum):
     Calculated = 2
@@ -94,6 +99,11 @@ def _filetime_to_datetime(input: bytes) -> datetime:
     microseconds = (filetime % 10000000) // 10
     dt_utc = datetime(1601, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seconds, microseconds=microseconds)
     return dt_utc
+
+def _ticks_to_timedelta(input: int) -> timedelta:
+    total_seconds = input / 10_000_000
+    td = timedelta(seconds=total_seconds)
+    return td
 
 def _seek_pad(input: AaObjBin, length: int):
     input.offset += length
@@ -187,6 +197,43 @@ def _seek_array_int(input: AaObjBin) -> list[int]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(int.from_bytes(x, 'little'))
+    return value
+
+def _seek_array_float(input: AaObjBin) -> list[float]:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(struct.unpack('<f', x)[0])
+    return value
+
+def _seek_array_double(input: AaObjBin) -> list[float]:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(struct.unpack('<d', x)[0])
+    return value
+
+def _seek_array_string(input: AaObjBin) -> list[str]:
+    _seek_pad(input=input, length=4)
+    array_length = _seek_int(input=input, length=2)
+    _seek_pad(input=input, length=4)
+    value = []
+    for i in range(array_length):
+        obj = _seek_bytes(input=input)
+        value_type = _seek_int(input=obj, length=1)
+        obj2 = _seek_bytes(input=obj)
+        string_value = _seek_string_var_len(input=obj2)
+        value.append(string_value)
+    return value
+
+def _seek_array_datetime(input: AaObjBin) -> list[datetime]:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(_filetime_to_datetime(x))
+    return value
+
+def _seek_array_timedelta(input: AaObjBin) -> list[datetime]:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(_ticks_to_timedelta(int.from_bytes(x, 'little')))
     return value
 
 def _get_header(input: AaObjBin) -> AaObjHeader:
@@ -293,7 +340,7 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
         case AaObjTypeEnum.TimeType.value:
             value = _seek_datetime_var_len(input=input)
         case AaObjTypeEnum.ElapsedTimeType.value:
-            value = _seek_int(input=input, length=8)
+            value = _ticks_to_timedelta(_seek_int(input=input, length=8))
         case AaObjTypeEnum.InternationalizedStringType.value:
             value = _seek_international_string_value_section(input=input)
         case AaObjTypeEnum.BigStringType.value:
@@ -302,10 +349,19 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
             value = _seek_array_bool(input=input)
         case AaObjTypeEnum.ArrayIntegerType.value:
             value = _seek_array_int(input=input)
+        case AaObjTypeEnum.ArrayFloatType.value:
+            value = _seek_array_float(input=input)
+        case AaObjTypeEnum.ArrayDoubleType.value:
+            value = _seek_array_double(input=input)
+        case AaObjTypeEnum.ArrayStringType.value:
+            value = _seek_array_string(input=input)
+        case AaObjTypeEnum.ArrayTimeType.value:
+            value = _seek_array_datetime(input=input)
+        case AaObjTypeEnum.ArrayElapsedTimeType.value:
+            value = _seek_array_timedelta(input=input)
         case _:
             raise NotImplementedError()
 
-    print(f'{name} {array} {permission} {write} {locked} {attr_type} {value_type}')
     return AaObjAttr(
         name=name,
         attr_type=AaObjTypeEnum(attr_type),
