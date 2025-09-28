@@ -138,20 +138,21 @@ def decompress_aapkg(
     return streams
     
 def archive_to_disk(
-    file_path: str,
+    input_path: str,
     output_path: str
-):
+) -> types.AaManifest:
     # Directly dump archive with no application-specific
     # handling.
 
     # Create output folder if it doesn't exist yet
     if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
 
-    with zipfile.ZipFile(file_path, 'r') as archive:
+    with zipfile.ZipFile(input_path, 'r') as archive:
         streams = decompress_aapkg(file=archive)
         manifest = _get_manifest(streams)
-        print(manifest)
         for stream in streams:
             stream_output_path = _create_subfolders(output_path, stream.path)
             with open(stream_output_path, 'wb') as f:
                 f.write(stream.data)
+
+        return manifest

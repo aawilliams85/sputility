@@ -1,97 +1,11 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from enum import IntEnum
 import os
 import pprint
 import struct
-from zoneinfo import ZoneInfo
 
-class AaObjPermEnum(IntEnum):
-    FreeAccess = 0
-    Operate = 1
-    SecuredWrite = 2
-    VerifiedWrite = 3
-    Tune = 4
-    Configure = 5
-    ViewOnly = 6
-
-class AaObjTypeEnum(IntEnum):
-    NoneType = 0
-    BooleanType = 1
-    IntegerType = 2
-    FloatType = 3
-    DoubleType = 4
-    StringType = 5
-    TimeType = 6
-    ElapsedTimeType = 7
-    ReferenceType = 8
-    StatusType = 9
-    DataTypeType = 10
-    SecurityClassificationType = 11
-    DataQualityType = 12
-    QualifiedEnumType = 13
-    QualifiedStructType = 14
-    InternationalizedStringType = 15
-    BigStringType = 16
-    ArrayBooleanType = 65
-    ArrayIntegerType = 66
-    ArrayFloatType = 67
-    ArrayDoubleType = 68
-    ArrayStringType = 69
-    ArrayTimeType = 70
-    ArrayElapsedTimeType = 71
-
-class AaObjWriteEnum(IntEnum):
-    Calculated = 2
-    CalculatedRetentive = 3
-    ObjectWriteable = 5
-    UserWriteable = 10
-    ConfigOnly = 11
-
-@dataclass
-class AaObjBin:
-    data: bytes
-    offset: int
-
-@dataclass
-class AaObjHeader:
-    base_gobjectid: int
-    is_template: bool       # <Obj>._IsTemplate
-    this_gobjectid: int
-    security_group: str     # <Obj>.SecurityGroup
-    parent_gobjectid: int
-    tagname: str            # <Obj>.Tagname
-    contained_name: str     # <Obj>.ContainedName
-    config_version: int     # <Obj>.ConfigVersion
-    hierarchal_name: str    # <Obj>.HierarchalName
-    host_name: str          # <Obj>.Host
-    container_name: str     # <Obj>.Container
-    area_name: str          # <Obj>.Area
-    derived_from: str
-    based_on: str           # <Obj>._BasedOn
-    galaxy_name: str
-
-@dataclass
-class AaObjAttr:
-    name: str
-    attr_type: AaObjTypeEnum
-    array: bool
-    permission: AaObjPermEnum
-    write: AaObjWriteEnum
-    locked: bool
-    parent_gobjectid: int
-    parent_name: str
-    value_type: AaObjTypeEnum
-    value: bool | int | float | str | datetime | timedelta | list
-
-@dataclass
-class AaObjSection:
-    main_section_id: int
-    template_name: str
-    attr_section_id: int
-    attr_count: int
-    attr_section: list[AaObjAttr]
-    short_desc: str         # <Obj>.ShortDesc
+from .enums import *
+from .types import *
 
 def _filetime_to_datetime(input: bytes) -> datetime:
     filetime = struct.unpack('<Q', input[:8])[0]
@@ -105,43 +19,43 @@ def _ticks_to_timedelta(input: int) -> timedelta:
     td = timedelta(seconds=total_seconds)
     return td
 
-def _seek_pad(input: AaObjBin, length: int):
+def _seek_pad(input: AaBinStream, length: int):
     input.offset += length
 
-def _seek_bytes(input: AaObjBin, length: int = 4) -> AaObjBin:
+def _seek_bytes(input: AaBinStream, length: int = 4) -> AaBinStream:
     obj_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
     input.offset += length
     length = obj_len
     value = input.data[input.offset:input.offset + length]
     input.offset += length
-    return AaObjBin(
+    return AaBinStream(
         data=value,
         offset=0
     )
 
-def _seek_float(input: AaObjBin) -> float:
+def _seek_float(input: AaBinStream) -> float:
     length = 4
     value = struct.unpack('<f', input.data[input.offset:input.offset + length])[0]
     input.offset += length
     return value
 
-def _seek_double(input: AaObjBin) -> float:
+def _seek_double(input: AaBinStream) -> float:
     length = 8
     value = struct.unpack('<d', input.data[input.offset:input.offset + length])[0]
     input.offset += length
     return value
 
-def _seek_int(input: AaObjBin, length: int = 4) -> int:
+def _seek_int(input: AaBinStream, length: int = 4) -> int:
     value = int.from_bytes(input.data[input.offset:input.offset + length], 'little')
     input.offset += length
     return value
 
-def _seek_string(input: AaObjBin, length: int = 64) -> str:
+def _seek_string(input: AaBinStream, length: int = 64) -> str:
     value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
     input.offset += length
     return value
 
-def _seek_string_var_len(input: AaObjBin, length: int = 4, mult: int = 1) -> str:
+def _seek_string_var_len(input: AaBinStream, length: int = 4, mult: int = 1) -> str:
     # Some variable-length string fields start with 4 bytes to specify the length in bytes.
     # Other use 2 bytes to specify the length in characters.  For the latter specify length=2, mult=2.
     str_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
@@ -151,14 +65,14 @@ def _seek_string_var_len(input: AaObjBin, length: int = 4, mult: int = 1) -> str
     input.offset += length
     return value
 
-def _seek_string_value_section(input: AaObjBin, length: int = 4) -> str:
+def _seek_string_value_section(input: AaBinStream, length: int = 4) -> str:
     # Buried inside the attribute section, there are string fields
     # where it is <length of object><length of string><string data>
     obj = _seek_bytes(input=input)
     value = _seek_string_var_len(input=obj)
     return value
 
-def _seek_international_string_value_section(input: AaObjBin, length: int = 4) -> str:
+def _seek_international_string_value_section(input: AaBinStream, length: int = 4) -> str:
     # Buried inside the attribute section, there are string fields
     # where it is <length of object><1><language id><length of string><string data>
     #
@@ -169,7 +83,7 @@ def _seek_international_string_value_section(input: AaObjBin, length: int = 4) -
     value = _seek_string_var_len(input=obj)
     return value
 
-def _seek_datetime_var_len(input: AaObjBin, length: int = 4) -> datetime:
+def _seek_datetime_var_len(input: AaBinStream, length: int = 4) -> datetime:
     dt_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
     input.offset += length
     length = dt_len
@@ -177,7 +91,7 @@ def _seek_datetime_var_len(input: AaObjBin, length: int = 4) -> datetime:
     input.offset += length
     return value
 
-def _seek_array(input: AaObjBin) -> list:
+def _seek_array(input: AaBinStream) -> list:
     _seek_pad(input=input, length=4)
     array_length = _seek_int(input=input, length=2)
     element_length = _seek_int(input=input, length=4)
@@ -187,31 +101,31 @@ def _seek_array(input: AaObjBin) -> list:
         input.offset += element_length
     return value
 
-def _seek_array_bool(input: AaObjBin) -> list[bool]:
+def _seek_array_bool(input: AaBinStream) -> list[bool]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(bool(int.from_bytes(x, 'little')))
     return value
 
-def _seek_array_int(input: AaObjBin) -> list[int]:
+def _seek_array_int(input: AaBinStream) -> list[int]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(int.from_bytes(x, 'little'))
     return value
 
-def _seek_array_float(input: AaObjBin) -> list[float]:
+def _seek_array_float(input: AaBinStream) -> list[float]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(struct.unpack('<f', x)[0])
     return value
 
-def _seek_array_double(input: AaObjBin) -> list[float]:
+def _seek_array_double(input: AaBinStream) -> list[float]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(struct.unpack('<d', x)[0])
     return value
 
-def _seek_array_string(input: AaObjBin) -> list[str]:
+def _seek_array_string(input: AaBinStream) -> list[str]:
     _seek_pad(input=input, length=4)
     array_length = _seek_int(input=input, length=2)
     _seek_pad(input=input, length=4)
@@ -224,19 +138,19 @@ def _seek_array_string(input: AaObjBin) -> list[str]:
         value.append(string_value)
     return value
 
-def _seek_array_datetime(input: AaObjBin) -> list[datetime]:
+def _seek_array_datetime(input: AaBinStream) -> list[datetime]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(_filetime_to_datetime(x))
     return value
 
-def _seek_array_timedelta(input: AaObjBin) -> list[datetime]:
+def _seek_array_timedelta(input: AaBinStream) -> list[datetime]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(_ticks_to_timedelta(int.from_bytes(x, 'little')))
     return value
 
-def _get_header(input: AaObjBin) -> AaObjHeader:
+def _get_header(input: AaBinStream) -> AaObjectHeader:
     base_gobjectid = _seek_int(input=input)
 
     # If this is a template there will be four null bytes
@@ -286,7 +200,7 @@ def _get_header(input: AaObjBin) -> AaObjHeader:
     else:
         _seek_pad(input=input, length=1352)
 
-    return AaObjHeader(
+    return AaObjectHeader(
         base_gobjectid=base_gobjectid,
         is_template=is_template,
         this_gobjectid=this_gobjectid,
@@ -304,7 +218,7 @@ def _get_header(input: AaObjBin) -> AaObjHeader:
         galaxy_name=galaxy_name
     )
 
-def _get_attr(input: AaObjBin) -> AaObjAttr:
+def _get_attr(input: AaBinStream) -> AaObjectAttribute:
     _seek_pad(input=input, length=4)
     name = _seek_string_var_len(input=input, length=2, mult=2)
     attr_type = _seek_int(input=input, length=1)
@@ -325,57 +239,57 @@ def _get_attr(input: AaObjBin) -> AaObjAttr:
     value_type = _seek_int(input=input, length=1)
     value = None
     match value_type:
-        case AaObjTypeEnum.NoneType.value:
+        case AaDataType.NoneType.value:
             raise NotImplementedError()
-        case AaObjTypeEnum.BooleanType.value:
+        case AaDataType.BooleanType.value:
             value = bool(_seek_int(input=input, length=1))
-        case AaObjTypeEnum.IntegerType.value:
+        case AaDataType.IntegerType.value:
             value = _seek_int(input=input, length=4)
-        case AaObjTypeEnum.FloatType.value:
+        case AaDataType.FloatType.value:
             value = _seek_float(input=input)
-        case AaObjTypeEnum.DoubleType.value:
+        case AaDataType.DoubleType.value:
             value = _seek_double(input=input)
-        case AaObjTypeEnum.StringType.value:
+        case AaDataType.StringType.value:
             value = _seek_string_value_section(input=input)
-        case AaObjTypeEnum.TimeType.value:
+        case AaDataType.TimeType.value:
             value = _seek_datetime_var_len(input=input)
-        case AaObjTypeEnum.ElapsedTimeType.value:
+        case AaDataType.ElapsedTimeType.value:
             value = _ticks_to_timedelta(_seek_int(input=input, length=8))
-        case AaObjTypeEnum.InternationalizedStringType.value:
+        case AaDataType.InternationalizedStringType.value:
             value = _seek_international_string_value_section(input=input)
-        case AaObjTypeEnum.BigStringType.value:
+        case AaDataType.BigStringType.value:
             raise NotImplementedError()
-        case AaObjTypeEnum.ArrayBooleanType.value:
+        case AaDataType.ArrayBooleanType.value:
             value = _seek_array_bool(input=input)
-        case AaObjTypeEnum.ArrayIntegerType.value:
+        case AaDataType.ArrayIntegerType.value:
             value = _seek_array_int(input=input)
-        case AaObjTypeEnum.ArrayFloatType.value:
+        case AaDataType.ArrayFloatType.value:
             value = _seek_array_float(input=input)
-        case AaObjTypeEnum.ArrayDoubleType.value:
+        case AaDataType.ArrayDoubleType.value:
             value = _seek_array_double(input=input)
-        case AaObjTypeEnum.ArrayStringType.value:
+        case AaDataType.ArrayStringType.value:
             value = _seek_array_string(input=input)
-        case AaObjTypeEnum.ArrayTimeType.value:
+        case AaDataType.ArrayTimeType.value:
             value = _seek_array_datetime(input=input)
-        case AaObjTypeEnum.ArrayElapsedTimeType.value:
+        case AaDataType.ArrayElapsedTimeType.value:
             value = _seek_array_timedelta(input=input)
         case _:
             raise NotImplementedError()
 
-    return AaObjAttr(
+    return AaObjectAttribute(
         name=name,
-        attr_type=AaObjTypeEnum(attr_type),
+        attr_type=AaDataType(attr_type),
         array=array,
-        permission=AaObjPermEnum(permission),
-        write=AaObjWriteEnum(write),
+        permission=AaPermission(permission),
+        write=AaWriteability(write),
         locked=locked,
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
-        value_type=AaObjTypeEnum(value_type),
+        value_type=AaDataType(value_type),
         value=value
     )
 
-def _get_attrs(input: AaObjBin) -> AaObjSection:
+def _get_content(input: AaBinStream) -> AaObjectContent:
     main_section_id = _seek_int(input=input, length=16)
     template_name = _seek_string(input=input)
     _seek_pad(input=input, length=596)
@@ -387,13 +301,26 @@ def _get_attrs(input: AaObjBin) -> AaObjSection:
             attr = _get_attr(input=input)
             attrs.append(attr)
 
-    return AaObjSection(
+    # After the attribute section there seems to be an 8 byte null section
+    _seek_pad(input=input, length=8)
+
+    # Then there seem to be four NoneType objects
+    for i in range(4): _seek_pad(input=input, length=17)
+
+    # No clue
+    _seek_pad(input=input, length=24)
+
+    # Short desc object
+    _seek_pad(input=input, length=17)
+    short_desc = _seek_international_string_value_section(input=input)
+
+    return AaObjectContent(
         main_section_id=main_section_id,
         template_name=template_name,
         attr_section_id=attr_section_id,
         attr_count=attr_count,
         attr_section=attrs,
-        short_desc=''
+        short_desc=short_desc
     )
 
 def explode_aaobject(
@@ -417,7 +344,7 @@ def explode_aaobject(
     else:
         raise TypeError('Input must be a file path (str/PathLike) or bytes.')
     
-    aaobj = AaObjBin(
+    aaobj = AaBinStream(
         data=aaobject_bytes,
         offset=0
     )
@@ -425,6 +352,6 @@ def explode_aaobject(
     pprint.pprint(header)
     print('')
 
-    attrs = _get_attrs(input=aaobj)
+    attrs = _get_content(input=aaobj)
     pprint.pprint(attrs)
     print('')

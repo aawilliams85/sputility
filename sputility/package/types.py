@@ -38,3 +38,4 @@ class AaManifest:
     templates: list[AaManifestTemplate]
     bindings: AaManifestIODeviceMap
     object_count: int
+

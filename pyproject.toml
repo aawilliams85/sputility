@@ -1,0 +1,14 @@
+[project]
+name = "sputility"
+description = "Python ME Utility"
+version = "0.0.1"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    { name = "aawilliams85", email = "adair.williams85@gmail.com" }
+]
+dependencies = [
+]
+
+[project.urls]
+Repository = "https://github.com/aawilliams85/sputility.git"

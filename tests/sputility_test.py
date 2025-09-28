@@ -21,17 +21,21 @@ class sputility_tests(unittest.TestCase):
     def test_aapkg_to_folder(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
-            aapkg.archive_to_disk(
-                file_path=file,
-                output_path=LOCAL_OUTPUT_AAPKG_PATH
+            spu = SPUtility()
+            spu.decompress_package(
+                input_path=file,
+                output_path=LOCAL_OUTPUT_AAPKG_PATH,
+                progress=None
             )
 
     def test_aaobject_to_folder(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAOBJECT_PATH, '*.txt')):
-            aaobject.explode_aaobject(
-                input=file,
-                output_path=LOCAL_OUTPUT_AAOBJECT_PATH
+            spu = SPUtility()
+            spu.explode_object(
+                input_path=file,
+                output_path=LOCAL_OUTPUT_AAOBJECT_PATH,
+                progress=None
             )
 
     def tearDown(self):
