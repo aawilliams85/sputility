@@ -34,10 +34,10 @@ class AaReference:
 
 @dataclass
 class AaQualifiedEnum:
-    text: str
-    value: int
-    unk01: bytes
-    unk02: bytes
+    value: str
+    ordinal: int
+    primitive_id: bytes
+    attribute_id: bytes
 
 @dataclass
 class AaObjectValue:
@@ -68,7 +68,6 @@ class AaObjectContent:
     uda_attrs: list[AaObjectAttribute]
     builtin_count: int
     builtin_attrs: list[AaObjectAttribute]
-#    short_desc: str         # <Obj>.ShortDesc
 
 @dataclass
 class AaObject:

@@ -103,15 +103,15 @@ def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
 
 def _seek_qualifiedenum_section(input: types.AaBinStream) -> types.AaQualifiedEnum:
     obj = _seek_binstream(input=input)
-    text = _seek_string_var_len(input=obj)
-    value = _seek_int(input=obj, length=2)
-    unk01 = _seek_int(input=obj, length=2)
-    unk02 = _seek_int(input=obj, length=2)
+    value = _seek_string_var_len(input=obj)
+    ordinal = _seek_int(input=obj, length=2)
+    primitive_id = _seek_int(input=obj, length=2)
+    attribute_id = _seek_int(input=obj, length=2)
     return types.AaQualifiedEnum(
-        text=text,
         value=value,
-        unk01=unk01,
-        unk02=unk02
+        ordinal=ordinal,
+        primitive_id=primitive_id,
+        attribute_id=attribute_id
     )
 
 def _seek_international_string_value_section(input: types.AaBinStream) -> str:
