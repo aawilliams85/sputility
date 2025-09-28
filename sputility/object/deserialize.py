@@ -1,280 +1,62 @@
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
 import os
 import struct
-from warnings import warn
 
 from . import enums
+from . import primitives
 from . import types
 
 PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
-def _filetime_to_datetime(input: bytes) -> datetime:
-    filetime = struct.unpack('<Q', input[:8])[0]
-    seconds = filetime // 10000000
-    microseconds = (filetime % 10000000) // 10
-    dt_utc = datetime(1601, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seconds, microseconds=microseconds)
-    return dt_utc
-
-def _ticks_to_timedelta(input: int) -> timedelta:
-    total_seconds = input / 10_000_000
-    td = timedelta(seconds=total_seconds)
-    return td
-
-def _seek_pad(input: types.AaBinStream, length: int):
-    input.offset += length
-
-def _seek_bytes(input: types.AaBinStream, length: int = 4) -> bytes:
-    value = input.data[input.offset:input.offset + length]
-    input.offset += length
-    return value
-
-def _seek_binstream(input: types.AaBinStream, length: int = 4) -> types.AaBinStream:
-    obj_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
-    input.offset += length
-    length = obj_len
-    value = input.data[input.offset:input.offset + length]
-    input.offset += length
-    return types.AaBinStream(
-        data=value,
-        offset=0
-    )
-
-def _seek_float(input: types.AaBinStream) -> float:
-    length = 4
-    value = struct.unpack('<f', input.data[input.offset:input.offset + length])[0]
-    input.offset += length
-    return value
-
-def _seek_double(input: types.AaBinStream) -> float:
-    length = 8
-    value = struct.unpack('<d', input.data[input.offset:input.offset + length])[0]
-    input.offset += length
-    return value
-
-def _seek_int(input: types.AaBinStream, length: int = 4) -> int:
-    value = int.from_bytes(input.data[input.offset:input.offset + length], 'little')
-    input.offset += length
-    return value
-
-def _seek_string(input: types.AaBinStream, length: int = 64) -> str:
-    value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    input.offset += length
-    return value
-
-def _seek_string_var_len(input: types.AaBinStream, length: int = 4, mult: int = 1) -> str:
-    # Some variable-length string fields start with 4 bytes to specify the length in bytes.
-    # Other use 2 bytes to specify the length in characters.  For the latter specify length=2, mult=2.
-    str_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
-    input.offset += length
-    length = str_len * mult
-    value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    input.offset += length
-    return value
-
-def _seek_string_value_section(input: types.AaBinStream) -> str:
-    # Buried inside the attribute section, there are string fields
-    # where it is <length of object><length of string><string data>
-    obj = _seek_binstream(input=input)
-    value = _seek_string_var_len(input=obj)
-    return value
-
-def _seek_reference_section(input: types.AaBinStream) -> bytes:
-    # No clue how to break this down further yet
-    obj = _seek_binstream(input=input)
-    return obj
-
-def _seek_qualifiedenum_section(input: types.AaBinStream) -> str:
-    obj = _seek_binstream(input=input)
-    value = _seek_string_var_len(input=obj)
-    _seek_pad(input=obj, length=6) # Not sure what last 6 bytes are
-    return value
-
-def _seek_international_string_value_section(input: types.AaBinStream) -> str:
-    # Buried inside the attribute section, there are string fields
-    # where it is <length of object><1><language id><length of string><string data>
-    #
-    # Would need to look at a multi-lang application to see how this changes
-    obj = _seek_binstream(input=input)
-    index = _seek_int(input=obj)
-    locale_id = _seek_int(input=obj)
-    value = _seek_string_var_len(input=obj)
-    return value
-
-def _seek_datetime_var_len(input: types.AaBinStream, length: int = 4) -> datetime:
-    dt_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
-    input.offset += length
-    length = dt_len
-    value = _filetime_to_datetime(input.data[input.offset: input.offset + length])
-    input.offset += length
-    return value
-
-def _seek_array(input: types.AaBinStream) -> list:
-    _seek_pad(input=input, length=4)
-    array_length = _seek_int(input=input, length=2)
-    element_length = _seek_int(input=input, length=4)
-    value = []
-    for i in range(array_length):
-        value.append(input.data[input.offset:input.offset + element_length])
-        input.offset += element_length
-    return value
-
-def _seek_array_bool(input: types.AaBinStream) -> list[bool]:
-    obj = _seek_array(input=input)
-    value = []
-    for x in obj: value.append(bool(int.from_bytes(x, 'little')))
-    return value
-
-def _seek_array_int(input: types.AaBinStream) -> list[int]:
-    obj = _seek_array(input=input)
-    value = []
-    for x in obj: value.append(int.from_bytes(x, 'little'))
-    return value
-
-def _seek_array_float(input: types.AaBinStream) -> list[float]:
-    obj = _seek_array(input=input)
-    value = []
-    for x in obj: value.append(struct.unpack('<f', x)[0])
-    return value
-
-def _seek_array_double(input: types.AaBinStream) -> list[float]:
-    obj = _seek_array(input=input)
-    value = []
-    for x in obj: value.append(struct.unpack('<d', x)[0])
-    return value
-
-def _seek_array_string(input: types.AaBinStream) -> list[str]:
-    _seek_pad(input=input, length=4)
-    array_length = _seek_int(input=input, length=2)
-    _seek_pad(input=input, length=4)
-    value = []
-    for i in range(array_length):
-        obj = _seek_binstream(input=input)
-        value_type = _seek_int(input=obj, length=1)
-        obj2 = _seek_binstream(input=obj)
-        string_value = _seek_string_var_len(input=obj2)
-        value.append(string_value)
-    return value
-
-def _seek_array_datetime(input: types.AaBinStream) -> list[datetime]:
-    obj = _seek_array(input=input)
-    value = []
-    for x in obj: value.append(_filetime_to_datetime(x))
-    return value
-
-def _seek_array_timedelta(input: types.AaBinStream) -> list[datetime]:
-    obj = _seek_array(input=input)
-    value = []
-    for x in obj: value.append(_ticks_to_timedelta(int.from_bytes(x, 'little')))
-    return value
-
-def _seek_object_value(input: types.AaBinStream) -> types.AaObjectValue:
-    header = _seek_bytes(input=input, length=16)
-    if header != PATTERN_OBJECT_VALUE: warn(f'Object value unexpected header: {header}')
-    datatype = _seek_int(input=input, length=1)
-    value = None
-    match datatype:
-        case enums.AaDataType.NoneType.value:
-            value = None
-        case enums.AaDataType.BooleanType.value:
-            value = bool(_seek_int(input=input, length=1))
-        case enums.AaDataType.IntegerType.value:
-            value = _seek_int(input=input, length=4)
-        case enums.AaDataType.FloatType.value:
-            value = _seek_float(input=input)
-        case enums.AaDataType.DoubleType.value:
-            value = _seek_double(input=input)
-        case enums.AaDataType.StringType.value:
-            value = _seek_string_value_section(input=input)
-        case enums.AaDataType.TimeType.value:
-            value = _seek_datetime_var_len(input=input)
-        case enums.AaDataType.ElapsedTimeType.value:
-            value = _ticks_to_timedelta(_seek_int(input=input, length=8))
-        case enums.AaDataType.ReferenceType.value:
-            value = _seek_reference_section(input=input)
-        case enums.AaDataType.QualifiedEnumType.value:
-            value = _seek_qualifiedenum_section(input=input)
-        case enums.AaDataType.InternationalizedStringType.value:
-            value = _seek_international_string_value_section(input=input)
-        case enums.AaDataType.BigStringType.value:
-            raise NotImplementedError()
-        case enums.AaDataType.ArrayBooleanType.value:
-            value = _seek_array_bool(input=input)
-        case enums.AaDataType.ArrayIntegerType.value:
-            value = _seek_array_int(input=input)
-        case enums.AaDataType.ArrayFloatType.value:
-            value = _seek_array_float(input=input)
-        case enums.AaDataType.ArrayDoubleType.value:
-            value = _seek_array_double(input=input)
-        case enums.AaDataType.ArrayStringType.value:
-            value = _seek_array_string(input=input)
-        case enums.AaDataType.ArrayTimeType.value:
-            value = _seek_array_datetime(input=input)
-        case enums.AaDataType.ArrayElapsedTimeType.value:
-            value = _seek_array_timedelta(input=input)
-        case _:
-            raise NotImplementedError()
-    return types.AaObjectValue(
-        header=header,
-        datatype=enums.AaDataType(datatype),
-        value=value
-    )
-
-def _seek_end_section(input: types.AaBinStream):
-    value = _seek_bytes(input=input, length=8)
-    if value != PATTERN_END: warn(f'End Section unexpected value: {value}')
-    return value
-
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
-    base_gobjectid = _seek_int(input=input)
+    base_gobjectid = primitives._seek_int(input=input)
 
     # If this is a template there will be four null bytes
     # Otherwise if those bytes are missing, it is an instance
-    check_is_template = _seek_int(input=input)
+    check_is_template = primitives._seek_int(input=input)
     if check_is_template:
         is_template = False
         input.offset -= 4
     else:
         is_template = True
 
-    _seek_pad(input=input, length=4)
-    this_gobjectid = _seek_int(input=input)
-    _seek_pad(input=input, length=12)
-    security_group = _seek_string(input=input)
-    _seek_pad(input=input, length=12)
-    parent_gobject_id = _seek_int(input=input)
-    _seek_pad(input=input, length=52)
-    tagname = _seek_string(input=input)
-    _seek_pad(input=input, length=596)
-    contained_name = _seek_string(input=input)
-    _seek_pad(input=input, length=4)
-    _seek_pad(input=input, length=32)
-    config_version = _seek_int(input=input)
-    _seek_pad(input=input, length=16)
-    hierarchal_name = _seek_string(input=input, length=130)
-    _seek_pad(input=input, length=530)
-    host_name = _seek_string(input=input)
-    _seek_pad(input=input, length=2)
-    container_name = _seek_string(input=input)
-    _seek_pad(input=input, length=596)
-    area_name = _seek_string(input=input)
-    _seek_pad(input=input, length=2)
-    derived_from = _seek_string(input=input)
-    _seek_pad(input=input, length=596)
-    based_on = _seek_string(input=input)
-    _seek_pad(input=input, length=528)
-    galaxy_name = _seek_string_var_len(input=input)
+    primitives._seek_pad(input=input, length=4)
+    this_gobjectid = primitives._seek_int(input=input)
+    primitives._seek_pad(input=input, length=12)
+    security_group = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=12)
+    parent_gobject_id = primitives._seek_int(input=input)
+    primitives._seek_pad(input=input, length=52)
+    tagname = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=596)
+    contained_name = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=4)
+    primitives._seek_pad(input=input, length=32)
+    config_version = primitives._seek_int(input=input)
+    primitives._seek_pad(input=input, length=16)
+    hierarchal_name = primitives._seek_string(input=input, length=130)
+    primitives._seek_pad(input=input, length=530)
+    host_name = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=2)
+    container_name = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=596)
+    area_name = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=2)
+    derived_from = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=596)
+    based_on = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=528)
+    galaxy_name = primitives._seek_string_var_len(input=input)
 
     # Trying to figure out whether this first
     # byte being inserted means it is a template.
     #
     # Instances seem to be one byte shorter in this section.
-    may_be_is_template = not(bool(_seek_int(input=input, length=1)))
+    may_be_is_template = not(bool(primitives._seek_int(input=input, length=1)))
     if may_be_is_template:
-        _seek_pad(input=input, length=1353)
+        primitives._seek_pad(input=input, length=1353)
     else:
-        _seek_pad(input=input, length=1352)
+        primitives._seek_pad(input=input, length=1352)
 
     return types.AaObjectHeader(
         base_gobjectid=base_gobjectid,
@@ -295,23 +77,23 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     )
 
 def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
-    _seek_pad(input=input, length=4)
-    name = _seek_string_var_len(input=input, length=2, mult=2)
-    attr_type = _seek_int(input=input, length=1)
+    primitives._seek_pad(input=input, length=4)
+    name = primitives._seek_string_var_len(input=input, length=2, mult=2)
+    attr_type = primitives._seek_int(input=input, length=1)
 
     # It seems like these are probably four-bytes eache
     # but the enum ranges are small so maybe some bytes
     # are really reserved?
-    array = bool(_seek_int(input=input))
-    permission = _seek_int(input=input)
-    write = _seek_int(input=input)
-    locked = _seek_int(input=input)
+    array = bool(primitives._seek_int(input=input))
+    permission = primitives._seek_int(input=input)
+    write = primitives._seek_int(input=input)
+    locked = primitives._seek_int(input=input)
 
-    parent_gobjectid = _seek_int(input=input, length=4)
-    _seek_pad(input=input, length=8)
-    parent_name = _seek_string_var_len(input=input, length=2, mult=2)
-    _seek_pad(input=input, length=2)
-    value = _seek_object_value(input=input)
+    parent_gobjectid = primitives._seek_int(input=input, length=4)
+    primitives._seek_pad(input=input, length=8)
+    parent_name = primitives._seek_string_var_len(input=input, length=2, mult=2)
+    primitives._seek_pad(input=input, length=2)
+    value = primitives._seek_object_value(input=input)
 
     return types.AaObjectAttribute(
         name=name,
@@ -327,12 +109,12 @@ def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     )
 
 def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
-    _seek_pad(input=input, length=4) # internal ID?
-    _seek_pad(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
-    attr_type = _seek_int(input=input, length=1)
+    primitives._seek_pad(input=input, length=4) # internal ID?
+    primitives._seek_pad(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
+    attr_type = primitives._seek_int(input=input, length=1)
     print(attr_type)
-    _seek_pad(input=input, length=11) # ???
-    value = _seek_object_value(input=input)
+    primitives._seek_pad(input=input, length=11) # ???
+    value = primitives._seek_object_value(input=input)
     print(value)
 
     return types.AaObjectAttribute(
@@ -349,28 +131,28 @@ def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     )
 
 def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
-    main_section_id = _seek_int(input=input, length=16)
-    template_name = _seek_string(input=input)
-    _seek_pad(input=input, length=596)
+    main_section_id = primitives._seek_int(input=input, length=16)
+    template_name = primitives._seek_string(input=input)
+    primitives._seek_pad(input=input, length=596)
 
     # User Defined Attributes ???
-    uda_header = _seek_int(input=input, length=16)
-    uda_count = _seek_int(input=input)
+    uda_header = primitives._seek_int(input=input, length=16)
+    uda_count = primitives._seek_int(input=input)
     uda_attrs = []
     if uda_count > 0:
         for i in range(uda_count):
             attr = _get_userdefined_attr(input=input)
             uda_attrs.append(attr)
-    _seek_end_section(input=input)
+    primitives._seek_end_section(input=input)
 
     # Then there seem to be four NoneType objects
-    for i in range(4): _seek_object_value(input=input)
+    for i in range(4): primitives._seek_object_value(input=input)
 
     # No clue
     #_seek_pad(input=input, length=24)
 
     # Built-in attributes ???
-    builtin_count = _seek_int(input=input)
+    builtin_count = primitives._seek_int(input=input)
     builtin_attrs = []
     if builtin_count > 0:
         for i in range(builtin_count):
