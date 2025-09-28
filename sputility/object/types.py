@@ -42,16 +42,19 @@ class AaObjectAttribute:
     locked: enums.AaLocked
     parent_gobjectid: int
     parent_name: str
+    source: enums.AaSource
     value: AaObjectValue
 
 @dataclass
 class AaObjectContent:
     main_section_id: int
     template_name: str
-    attr_section_id: int
-    attr_count: int
-    attr_section: list[AaObjectAttribute]
-    short_desc: str         # <Obj>.ShortDesc
+    uda_header: int
+    uda_count: int
+    uda_attrs: list[AaObjectAttribute]
+    builtin_count: int
+    builtin_attrs: list[AaObjectAttribute]
+#    short_desc: str         # <Obj>.ShortDesc
 
 @dataclass
 class AaObject:

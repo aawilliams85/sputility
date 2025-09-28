@@ -73,14 +73,25 @@ def _seek_string_var_len(input: types.AaBinStream, length: int = 4, mult: int = 
     input.offset += length
     return value
 
-def _seek_string_value_section(input: types.AaBinStream, length: int = 4) -> str:
+def _seek_string_value_section(input: types.AaBinStream) -> str:
     # Buried inside the attribute section, there are string fields
     # where it is <length of object><length of string><string data>
     obj = _seek_binstream(input=input)
     value = _seek_string_var_len(input=obj)
     return value
 
-def _seek_international_string_value_section(input: types.AaBinStream, length: int = 4) -> str:
+def _seek_reference_section(input: types.AaBinStream) -> bytes:
+    # No clue how to break this down further yet
+    obj = _seek_binstream(input=input)
+    return obj
+
+def _seek_qualifiedenum_section(input: types.AaBinStream) -> str:
+    obj = _seek_binstream(input=input)
+    value = _seek_string_var_len(input=obj)
+    _seek_pad(input=obj, length=6) # Not sure what last 6 bytes are
+    return value
+
+def _seek_international_string_value_section(input: types.AaBinStream) -> str:
     # Buried inside the attribute section, there are string fields
     # where it is <length of object><1><language id><length of string><string data>
     #
@@ -180,6 +191,10 @@ def _seek_object_value(input: types.AaBinStream) -> types.AaObjectValue:
             value = _seek_datetime_var_len(input=input)
         case enums.AaDataType.ElapsedTimeType.value:
             value = _ticks_to_timedelta(_seek_int(input=input, length=8))
+        case enums.AaDataType.ReferenceType.value:
+            value = _seek_reference_section(input=input)
+        case enums.AaDataType.QualifiedEnumType.value:
+            value = _seek_qualifiedenum_section(input=input)
         case enums.AaDataType.InternationalizedStringType.value:
             value = _seek_international_string_value_section(input=input)
         case enums.AaDataType.BigStringType.value:
@@ -279,7 +294,7 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
         galaxy_name=galaxy_name
     )
 
-def _get_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
+def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     _seek_pad(input=input, length=4)
     name = _seek_string_var_len(input=input, length=2, mult=2)
     attr_type = _seek_int(input=input, length=1)
@@ -307,6 +322,29 @@ def _get_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
         locked=enums.AaLocked(locked),
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
+        source=enums.AaSource.UserDefined,
+        value=value
+    )
+
+def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
+    _seek_pad(input=input, length=4) # internal ID?
+    _seek_pad(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
+    attr_type = _seek_int(input=input, length=1)
+    print(attr_type)
+    _seek_pad(input=input, length=11) # ???
+    value = _seek_object_value(input=input)
+    print(value)
+
+    return types.AaObjectAttribute(
+        name=None,
+        attr_type=enums.AaDataType(attr_type),
+        array=None,
+        permission=None,
+        write=None,
+        locked=None,
+        parent_gobjectid=None,
+        parent_name=None,
+        source=enums.AaSource.BuiltIn,
         value=value
     )
 
@@ -314,44 +352,39 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     main_section_id = _seek_int(input=input, length=16)
     template_name = _seek_string(input=input)
     _seek_pad(input=input, length=596)
-    attr_section_id = _seek_int(input=input, length=16)
-    attr_count = _seek_int(input=input)
-    attrs = []
-    if attr_count > 0:
-        for i in range(attr_count):
-            attr = _get_attr(input=input)
-            attrs.append(attr)
 
-    # After the attribute section there seems to be an 8 byte null section
+    # User Defined Attributes ???
+    uda_header = _seek_int(input=input, length=16)
+    uda_count = _seek_int(input=input)
+    uda_attrs = []
+    if uda_count > 0:
+        for i in range(uda_count):
+            attr = _get_userdefined_attr(input=input)
+            uda_attrs.append(attr)
     _seek_end_section(input=input)
 
     # Then there seem to be four NoneType objects
     for i in range(4): _seek_object_value(input=input)
 
     # No clue
-    _seek_pad(input=input, length=24)
+    #_seek_pad(input=input, length=24)
 
-    # Short desc object
-    attrs.append(types.AaObjectAttribute(
-        name='ShortDesc',
-        attr_type=enums.AaDataType.InternationalizedStringType,
-        array=False,
-        permission=enums.AaPermission.Configure,
-        write=enums.AaWriteability.UserWriteable,
-        locked=None,
-        parent_gobjectid=None,
-        parent_name=None,
-        value=_seek_object_value(input=input)
-    ))
-    short_desc = _seek_object_value(input=input).value
+    # Built-in attributes ???
+    builtin_count = _seek_int(input=input)
+    builtin_attrs = []
+    if builtin_count > 0:
+        for i in range(builtin_count):
+            attr = _get_builtin_attr(input=input)
+            builtin_attrs.append(attr)
 
     return types.AaObjectContent(
         main_section_id=main_section_id,
         template_name=template_name,
-        attr_section_id=attr_section_id,
-        attr_count=attr_count,
-        attr_section=attrs,
-        short_desc=short_desc
+        uda_header=uda_header,
+        uda_count=uda_count,
+        uda_attrs=uda_attrs,
+        builtin_count=builtin_count,
+        builtin_attrs=builtin_attrs
     )
 
 def explode_aaobject(

@@ -1,6 +1,7 @@
 from enum import IntEnum
 
 class AaDataType(IntEnum):
+    Undefined = -1
     NoneType = 0
     BooleanType = 1
     IntegerType = 2
@@ -27,11 +28,13 @@ class AaDataType(IntEnum):
     ArrayElapsedTimeType = 71
 
 class AaLocked(IntEnum):
+    Undefined = -1
     Unlocked = 0
     Locked = 1
     InheritedLock = 2
 
 class AaPermission(IntEnum):
+    Undefined = -1
     FreeAccess = 0
     Operate = 1
     SecuredWrite = 2
@@ -40,7 +43,15 @@ class AaPermission(IntEnum):
     Configure = 5
     ViewOnly = 6
 
+class AaSource(IntEnum):
+    Undefined = -1
+    BuiltIn = 0
+    Inherited = 1
+    UserDefined = 2
+    UserExtended = 3
+
 class AaWriteability(IntEnum):
+    Undefined = -1
     Calculated = 2
     CalculatedRetentive = 3
     ObjectWriteable = 5
