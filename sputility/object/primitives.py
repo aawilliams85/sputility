@@ -78,10 +78,20 @@ def _seek_string_value_section(input: types.AaBinStream) -> str:
     value = _seek_string_var_len(input=obj)
     return value
 
-def _seek_reference_section(input: types.AaBinStream) -> bytes:
+def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
     # No clue how to break this down further yet
     obj = _seek_binstream(input=input)
-    return obj
+    refa_len = _seek_int(input=obj, length=2)
+    unk01 = _seek_int(input=obj, length=2)
+    refa_text = _seek_string(input=obj, length=refa_len)
+    _seek_pad(input=obj, length=8)
+    refb_text = _seek_string_var_len(input=obj)
+    _seek_pad(input=obj, length=20)
+    return types.AaReference(
+        unk01=unk01,
+        refA=refa_text,
+        refB=refb_text
+    )
 
 def _seek_qualifiedenum_section(input: types.AaBinStream) -> types.AaQualifiedEnum:
     obj = _seek_binstream(input=input)

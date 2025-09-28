@@ -27,6 +27,12 @@ class AaObjectHeader:
     galaxy_name: str
 
 @dataclass
+class AaReference:
+    unk01: bytes
+    refA: str
+    refB: str
+
+@dataclass
 class AaQualifiedEnum:
     text: str
     value: int
@@ -37,7 +43,7 @@ class AaQualifiedEnum:
 class AaObjectValue:
     header: bytes = field(repr=False)
     datatype: enums.AaDataType
-    value: bytes | bool | int | float | str | datetime | timedelta | list | AaQualifiedEnum
+    value: bytes | bool | int | float | str | datetime | timedelta | list | AaReference | AaQualifiedEnum
 
 @dataclass
 class AaObjectAttribute:
