@@ -77,7 +77,8 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     )
 
 def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
-    primitives._seek_pad(input=input, length=4)
+    primitives._seek_pad(input=input, length=2)
+    id = primitives._seek_int(input=input, length=2)
     name = primitives._seek_string_var_len(input=input, length=2, mult=2)
     attr_type = primitives._seek_int(input=input, length=1)
 
@@ -96,6 +97,7 @@ def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     value = primitives._seek_object_value(input=input)
 
     return types.AaObjectAttribute(
+        id=id,
         name=name,
         attr_type=enums.AaDataType(attr_type),
         array=array,
@@ -109,15 +111,24 @@ def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     )
 
 def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
-    primitives._seek_pad(input=input, length=4) # internal ID?
-    primitives._seek_pad(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
-    attr_type = primitives._seek_int(input=input, length=1)
-    print(attr_type)
-    primitives._seek_pad(input=input, length=11) # ???
-    value = primitives._seek_object_value(input=input)
-    print(value)
+    # Why is this backwards from the user defined attributes??
+    # Thanks WW
+    id = primitives._seek_int(input=input, length=2)
+    primitives._seek_pad(input=input, length=2)
+    attr_type = enums.AaDataType.Undefined
 
+    # This needs more follow-up tests with multiple levels
+    # of derivation.  It's not clear yet what some of these
+    # bytes are doing and where things like the lock/write
+    # values end up.
+    if not(primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE)):
+        primitives._seek_pad(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
+        attr_type = primitives._seek_int(input=input, length=1)
+        primitives._seek_pad(input=input, length=11) # ???
+
+    value = primitives._seek_object_value(input=input)
     return types.AaObjectAttribute(
+        id=id,
         name=None,
         attr_type=enums.AaDataType(attr_type),
         array=None,
@@ -147,9 +158,6 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
 
     # Then there seem to be four NoneType objects
     for i in range(4): primitives._seek_object_value(input=input)
-
-    # No clue
-    #_seek_pad(input=input, length=24)
 
     # Built-in attributes ???
     builtin_count = primitives._seek_int(input=input)

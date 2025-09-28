@@ -47,6 +47,7 @@ class AaObjectValue:
 
 @dataclass
 class AaObjectAttribute:
+    id: int
     name: str
     attr_type: enums.AaDataType
     array: bool

@@ -20,6 +20,10 @@ def _ticks_to_timedelta(input: int) -> timedelta:
     td = timedelta(seconds=total_seconds)
     return td
 
+def _lookahead_pattern(input: types.AaBinStream, pattern: bytes) -> bool:
+    actual = input.data[input.offset:input.offset + len(pattern)]
+    return (actual == pattern)
+
 def _seek_pad(input: types.AaBinStream, length: int):
     input.offset += length
 
@@ -79,12 +83,16 @@ def _seek_string_value_section(input: types.AaBinStream) -> str:
     return value
 
 def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
-    # No clue how to break this down further yet
     obj = _seek_binstream(input=input)
+
+    # This length is notably strange because the upper two bytes
+    # seem to be unrelated.  So it is 2 bytes for length, 2 bytes
+    # unknown, then data.  Need to test if this is a general rule
+    # throughout or just these sections.
     refa_len = _seek_int(input=obj, length=2)
     unk01 = _seek_int(input=obj, length=2)
     refa_text = _seek_string(input=obj, length=refa_len)
-    _seek_pad(input=obj, length=8)
+
     refb_text = _seek_string_var_len(input=obj)
     _seek_pad(input=obj, length=20)
     return types.AaReference(
@@ -184,9 +192,17 @@ def _seek_array_timedelta(input: types.AaBinStream) -> list[datetime]:
     for x in obj: value.append(_ticks_to_timedelta(int.from_bytes(x, 'little')))
     return value
 
-def _seek_object_value(input: types.AaBinStream) -> types.AaObjectValue:
+def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) -> types.AaObjectValue:
+    # The meaning of these header bytes is unclear except that
+    # they seem to sit ahead of all the Value objects.  If a mistake
+    # has been made walking through the binary somewhere else,
+    # this can catch the deserialization at the next attribute after
+    # the mistake.
     header = _seek_bytes(input=input, length=16)
-    if header != PATTERN_OBJECT_VALUE: warn(f'Object value unexpected header: {header}')
+    if header != PATTERN_OBJECT_VALUE:
+        warn(f'Object value unexpected header: {header}')
+        if raise_mismatch: raise Exception('Pattern mismatch.')
+
     datatype = _seek_int(input=input, length=1)
     value = None
     match datatype:
@@ -236,7 +252,14 @@ def _seek_object_value(input: types.AaBinStream) -> types.AaObjectValue:
         value=value
     )
 
-def _seek_end_section(input: types.AaBinStream):
+def _seek_end_section(input: types.AaBinStream, raise_mismatch: bool = True):
+    # The meaning of these header bytes is unclear except that
+    # they seem to sit behind certain objects.  If a mistake
+    # has been made walking through the binary somewhere else,
+    # this can catch the deserialization at the next object after
+    # the mistake.
     value = _seek_bytes(input=input, length=8)
-    if value != PATTERN_END: warn(f'End Section unexpected value: {value}')
+    if value != PATTERN_END:
+        warn(f'End Section unexpected value: {value}')
+        if raise_mismatch: raise Exception('Pattern mismatch.')
     return value
