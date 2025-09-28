@@ -28,7 +28,7 @@ class AaObjectHeader:
 
 @dataclass
 class AaObjectValue:
-    header: bytes
+    header: bytes = field(repr=False)
     datatype: enums.AaDataType
     value: bool | int | float | str | datetime | timedelta | list
 
@@ -39,11 +39,10 @@ class AaObjectAttribute:
     array: bool
     permission: enums.AaPermission
     write: enums.AaWriteability
-    locked: bool
+    locked: enums.AaLocked
     parent_gobjectid: int
     parent_name: str
-    value_type: enums.AaDataType
-    value: bool | int | float | str | datetime | timedelta | list
+    value: AaObjectValue
 
 @dataclass
 class AaObjectContent:

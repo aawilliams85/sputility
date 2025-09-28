@@ -7,6 +7,9 @@ from warnings import warn
 from . import enums
 from . import types
 
+PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
+PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+
 def _filetime_to_datetime(input: bytes) -> datetime:
     filetime = struct.unpack('<Q', input[:8])[0]
     seconds = filetime // 10000000
@@ -156,9 +159,8 @@ def _seek_array_timedelta(input: types.AaBinStream) -> list[datetime]:
     return value
 
 def _seek_object_value(input: types.AaBinStream) -> types.AaObjectValue:
-    expected_header = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
     header = _seek_bytes(input=input, length=16)
-    if header != expected_header: warn(f'Prim1 unexpected header: {header}')
+    if header != PATTERN_OBJECT_VALUE: warn(f'Object value unexpected header: {header}')
     datatype = _seek_int(input=input, length=1)
     value = None
     match datatype:
@@ -200,9 +202,14 @@ def _seek_object_value(input: types.AaBinStream) -> types.AaObjectValue:
             raise NotImplementedError()
     return types.AaObjectValue(
         header=header,
-        datatype=datatype,
+        datatype=enums.AaDataType(datatype),
         value=value
     )
+
+def _seek_end_section(input: types.AaBinStream):
+    value = _seek_bytes(input=input, length=8)
+    if value != PATTERN_END: warn(f'End Section unexpected value: {value}')
+    return value
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     base_gobjectid = _seek_int(input=input)
@@ -289,7 +296,7 @@ def _get_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     _seek_pad(input=input, length=8)
     parent_name = _seek_string_var_len(input=input, length=2, mult=2)
     _seek_pad(input=input, length=2)
-    value_prim = _seek_object_value(input=input)
+    value = _seek_object_value(input=input)
 
     return types.AaObjectAttribute(
         name=name,
@@ -300,8 +307,7 @@ def _get_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
         locked=enums.AaLocked(locked),
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
-        value_type=enums.AaDataType(value_prim.datatype),
-        value=value_prim.value
+        value=value
     )
 
 def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
@@ -317,7 +323,7 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
             attrs.append(attr)
 
     # After the attribute section there seems to be an 8 byte null section
-    _seek_pad(input=input, length=8)
+    _seek_end_section(input=input)
 
     # Then there seem to be four NoneType objects
     for i in range(4): _seek_object_value(input=input)
@@ -326,6 +332,17 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     _seek_pad(input=input, length=24)
 
     # Short desc object
+    attrs.append(types.AaObjectAttribute(
+        name='ShortDesc',
+        attr_type=enums.AaDataType.InternationalizedStringType,
+        array=False,
+        permission=enums.AaPermission.Configure,
+        write=enums.AaWriteability.UserWriteable,
+        locked=None,
+        parent_gobjectid=None,
+        parent_name=None,
+        value=_seek_object_value(input=input)
+    ))
     short_desc = _seek_object_value(input=input).value
 
     return types.AaObjectContent(
