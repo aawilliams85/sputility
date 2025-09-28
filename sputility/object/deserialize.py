@@ -229,7 +229,7 @@ def _get_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     array = bool(_seek_int(input=input))
     permission = _seek_int(input=input)
     write = _seek_int(input=input)
-    locked = bool(_seek_int(input=input))
+    locked = _seek_int(input=input)
 
     parent_gobjectid = _seek_int(input=input, length=4)
     _seek_pad(input=input, length=8)
@@ -282,7 +282,7 @@ def _get_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
         array=array,
         permission=enums.AaPermission(permission),
         write=enums.AaWriteability(write),
-        locked=locked,
+        locked=enums.AaLocked(locked),
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
         value_type=enums.AaDataType(value_type),

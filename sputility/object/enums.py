@@ -26,6 +26,11 @@ class AaDataType(IntEnum):
     ArrayTimeType = 70
     ArrayElapsedTimeType = 71
 
+class AaLocked(IntEnum):
+    Unlocked = 0
+    Locked = 1
+    InheritedLock = 2
+
 class AaPermission(IntEnum):
     FreeAccess = 0
     Operate = 1
