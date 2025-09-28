@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from .enums import *
+from . import enums
 
 @dataclass
 class AaBinStream:
@@ -29,14 +29,14 @@ class AaObjectHeader:
 @dataclass
 class AaObjectAttribute:
     name: str
-    attr_type: AaDataType
+    attr_type: enums.AaDataType
     array: bool
-    permission: AaPermission
-    write: AaWriteability
+    permission: enums.AaPermission
+    write: enums.AaWriteability
     locked: bool
     parent_gobjectid: int
     parent_name: str
-    value_type: AaDataType
+    value_type: enums.AaDataType
     value: bool | int | float | str | datetime | timedelta | list
 
 @dataclass
