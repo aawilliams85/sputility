@@ -1,5 +1,6 @@
 import glob
 import os
+import pprint
 import unittest
 
 from sputility import *
@@ -22,21 +23,23 @@ class sputility_tests(unittest.TestCase):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
             spu = SPUtility()
-            spu.decompress_package(
+            resp = spu.decompress_package(
                 input_path=file,
                 output_path=LOCAL_OUTPUT_AAPKG_PATH,
                 progress=None
             )
+            pprint.pprint(resp)
 
     def test_aaobject_to_folder(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAOBJECT_PATH, '*.txt')):
             spu = SPUtility()
-            spu.explode_object(
+            resp = spu.explode_object(
                 input_path=file,
                 output_path=LOCAL_OUTPUT_AAOBJECT_PATH,
                 progress=None
             )
+            pprint.pprint(resp)
 
     def tearDown(self):
         pass

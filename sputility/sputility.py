@@ -1,6 +1,5 @@
 from collections.abc import Callable
 import os
-import pprint
 from typing import Optional
 from warnings import warn
 
@@ -20,7 +19,6 @@ class SPUtility(object):
         if not(os.path.isfile(input_path)): raise FileNotFoundError(f'Input file specified ({input_path}) does not exist.')
         if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
         result = decompress.archive_to_disk(input_path=input_path, output_path=output_path)
-        pprint.pprint(result)
         return result
 
     def explode_object(
@@ -32,4 +30,4 @@ class SPUtility(object):
         if not(os.path.isfile(input_path)): raise FileNotFoundError(f'Input file specified ({input_path}) does not exist.')
         if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
         result = deserialize.explode_aaobject(input=input_path, output_path=output_path)       
-        pprint.pprint(result)
+        return result

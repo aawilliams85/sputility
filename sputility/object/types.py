@@ -27,6 +27,12 @@ class AaObjectHeader:
     galaxy_name: str
 
 @dataclass
+class AaObjectValue:
+    header: bytes
+    datatype: enums.AaDataType
+    value: bool | int | float | str | datetime | timedelta | list
+
+@dataclass
 class AaObjectAttribute:
     name: str
     attr_type: enums.AaDataType
@@ -47,3 +53,8 @@ class AaObjectContent:
     attr_count: int
     attr_section: list[AaObjectAttribute]
     short_desc: str         # <Obj>.ShortDesc
+
+@dataclass
+class AaObject:
+    header: AaObjectHeader
+    content: AaObjectContent
