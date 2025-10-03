@@ -26,6 +26,8 @@ class AaDataType(IntEnum):
     ArrayStringType = 69
     ArrayTimeType = 70
     ArrayElapsedTimeType = 71
+    ArrayReferenceType = 72
+    ArrayStatusType = 73
     ArrayDataTypeType = 74
 
 class AaLocked(IntEnum):

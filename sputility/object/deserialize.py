@@ -1,4 +1,5 @@
 import os
+import pprint
 import struct
 
 from . import enums
@@ -139,6 +140,51 @@ def _get_attr_type2(input: types.AaBinStream) -> types.AaObjectAttribute:
         value=value
     )
 
+def _get_attr_type3(input: types.AaBinStream) -> types.AaObjectAttribute:
+    id = primitives._seek_int(input=input, length=2)
+    unk01 = primitives._seek_int(input=input, length=2)
+    unk02 = primitives._seek_int(input=input)
+    unk03 = primitives._seek_int(input=input)
+    unk04 = primitives._seek_int(input=input)
+    unk05 = primitives._seek_int(input=input)
+    value = primitives._seek_object_value(input=input)
+    return types.AaObjectAttribute(
+        id=id,
+        name=None,
+        attr_type=enums.AaDataType(value.datatype),
+        array=None,
+        permission=None,
+        write=None,
+        locked=None,
+        parent_gobjectid=None,
+        parent_name=None,
+        source=None,
+        value=value
+    )
+
+def _get_script_section(input: types.AaBinStream) -> bytes:
+    section_type = primitives._seek_int(input=input)
+    section_name = primitives._seek_string(input=input)
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=20) # header?
+    extension_name = primitives._seek_string(input=input)
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=20) # header?
+    object_name = primitives._seek_string(input=input) # this object or parent inherited from
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=16) # header?
+    primitives._seek_forward(input=input, length=12)
+    for i in range(4): primitives._seek_object_value(input=input) # NoneType blocks
+    attr_count = primitives._seek_int(input=input)
+    attrs = []
+    if attr_count > 0:
+        for i in range(attr_count):
+            attrs.append(_get_attr_type3(input=input))
+
+    #pprint.pprint(attrs)
+    #print(len(attrs))
+    print(section_name)
+
 def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     main_section_id = primitives._seek_int(input=input, length=16)
     template_name = primitives._seek_string(input=input)
@@ -249,6 +295,10 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         count=count,
         attributes=attrs
     ))
+
+    # Script sections
+    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_SCRIPT):
+        _get_script_section(input=input)
 
     return types.AaObjectContent(
         main_section_id=main_section_id,

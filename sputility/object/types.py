@@ -66,6 +66,16 @@ class AaObjectAttributeSection:
     attributes: list[AaObjectAttribute]
 
 @dataclass
+class AaObjectScript:
+    test: int
+
+@dataclass
+class AaObjectScriptSection:
+    type: int
+    name: str
+
+
+@dataclass
 class AaObjectContent:
     main_section_id: int
     template_name: str
