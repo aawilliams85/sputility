@@ -5,6 +5,7 @@ from warnings import warn
 from . import enums
 from . import types
 
+PATTERN_TEMPLATE_VALUE = b'\x00\x00\x00\x00'
 PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
@@ -24,7 +25,7 @@ def _lookahead_pattern(input: types.AaBinStream, pattern: bytes) -> bool:
     actual = input.data[input.offset:input.offset + len(pattern)]
     return (actual == pattern)
 
-def _seek_pad(input: types.AaBinStream, length: int):
+def _seek_forward(input: types.AaBinStream, length: int):
     input.offset += length
 
 def _seek_bytes(input: types.AaBinStream, length: int = 4) -> bytes:
@@ -94,12 +95,17 @@ def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
     refa_text = _seek_string(input=obj, length=refa_len)
 
     refb_text = _seek_string_var_len(input=obj)
-    _seek_pad(input=obj, length=20)
+    _seek_forward(input=obj, length=20)
     return types.AaReference(
         unk01=unk01,
         refA=refa_text,
         refB=refb_text
     )
+
+def _seek_status_section(input: types.AaBinStream) -> bytes:
+    obj = _seek_binstream(input=input)
+    value = _seek_bytes(input=obj, length=len(obj.data))
+    return value
 
 def _seek_qualifiedenum_section(input: types.AaBinStream) -> types.AaQualifiedEnum:
     obj = _seek_binstream(input=input)
@@ -113,6 +119,11 @@ def _seek_qualifiedenum_section(input: types.AaBinStream) -> types.AaQualifiedEn
         primitive_id=primitive_id,
         attribute_id=attribute_id
     )
+
+def _seek_qualifiedstruct_section(input: types.AaBinStream) -> bytes:
+    obj = _seek_binstream(input=input)
+    value = _seek_bytes(input=obj, length=len(obj.data))
+    return value
 
 def _seek_international_string_value_section(input: types.AaBinStream) -> str:
     # Buried inside the attribute section, there are string fields
@@ -134,7 +145,7 @@ def _seek_datetime_var_len(input: types.AaBinStream, length: int = 4) -> datetim
     return value
 
 def _seek_array(input: types.AaBinStream) -> list:
-    _seek_pad(input=input, length=4)
+    _seek_forward(input=input, length=4)
     array_length = _seek_int(input=input, length=2)
     element_length = _seek_int(input=input, length=4)
     value = []
@@ -168,9 +179,9 @@ def _seek_array_double(input: types.AaBinStream) -> list[float]:
     return value
 
 def _seek_array_string(input: types.AaBinStream) -> list[str]:
-    _seek_pad(input=input, length=4)
+    _seek_forward(input=input, length=4)
     array_length = _seek_int(input=input, length=2)
-    _seek_pad(input=input, length=4)
+    _seek_forward(input=input, length=4)
     value = []
     for i in range(array_length):
         obj = _seek_binstream(input=input)
@@ -190,6 +201,12 @@ def _seek_array_timedelta(input: types.AaBinStream) -> list[datetime]:
     obj = _seek_array(input=input)
     value = []
     for x in obj: value.append(_ticks_to_timedelta(int.from_bytes(x, 'little')))
+    return value
+
+def _seek_array_datatype(input: types.AaBinStream) -> list:
+    obj = _seek_array(input=input)
+    value = []
+    for x in obj: value.append(x)
     return value
 
 def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) -> types.AaObjectValue:
@@ -224,12 +241,14 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
             value = _ticks_to_timedelta(_seek_int(input=input, length=8))
         case enums.AaDataType.ReferenceType.value:
             value = _seek_reference_section(input=input)
+        case enums.AaDataType.StatusType.value:
+            value = _seek_status_section(input=input)
         case enums.AaDataType.QualifiedEnumType.value:
             value = _seek_qualifiedenum_section(input=input)
+        case enums.AaDataType.QualifiedStructType.value:
+            value = _seek_qualifiedstruct_section(input=input)
         case enums.AaDataType.InternationalizedStringType.value:
             value = _seek_international_string_value_section(input=input)
-        case enums.AaDataType.BigStringType.value:
-            raise NotImplementedError()
         case enums.AaDataType.ArrayBooleanType.value:
             value = _seek_array_bool(input=input)
         case enums.AaDataType.ArrayIntegerType.value:
@@ -244,8 +263,10 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
             value = _seek_array_datetime(input=input)
         case enums.AaDataType.ArrayElapsedTimeType.value:
             value = _seek_array_timedelta(input=input)
+        case enums.AaDataType.ArrayDataTypeType.value:
+            value = _seek_array_datatype(input=input)
         case _:
-            raise NotImplementedError()
+            raise NotImplementedError(f'Data type {datatype} not implemented.')
     return types.AaObjectValue(
         header=header,
         datatype=enums.AaDataType(datatype),

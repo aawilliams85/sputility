@@ -26,6 +26,7 @@ class AaDataType(IntEnum):
     ArrayStringType = 69
     ArrayTimeType = 70
     ArrayElapsedTimeType = 71
+    ArrayDataTypeType = 74
 
 class AaLocked(IntEnum):
     Undefined = -1

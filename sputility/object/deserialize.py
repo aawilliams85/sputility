@@ -13,39 +13,37 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
 
     # If this is a template there will be four null bytes
     # Otherwise if those bytes are missing, it is an instance
-    check_is_template = primitives._seek_int(input=input)
-    if check_is_template:
-        is_template = False
-        input.offset -= 4
-    else:
-        is_template = True
+    is_template = False
+    if primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_TEMPLATE_VALUE):
+        is_template =  True
+        primitives._seek_forward(input=input, length=4)
 
-    primitives._seek_pad(input=input, length=4)
+    primitives._seek_forward(input=input, length=4)
     this_gobjectid = primitives._seek_int(input=input)
-    primitives._seek_pad(input=input, length=12)
+    primitives._seek_forward(input=input, length=12)
     security_group = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=12)
+    primitives._seek_forward(input=input, length=12)
     parent_gobject_id = primitives._seek_int(input=input)
-    primitives._seek_pad(input=input, length=52)
+    primitives._seek_forward(input=input, length=52)
     tagname = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=596)
+    primitives._seek_forward(input=input, length=596)
     contained_name = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=4)
-    primitives._seek_pad(input=input, length=32)
+    primitives._seek_forward(input=input, length=4)
+    primitives._seek_forward(input=input, length=32)
     config_version = primitives._seek_int(input=input)
-    primitives._seek_pad(input=input, length=16)
+    primitives._seek_forward(input=input, length=16)
     hierarchal_name = primitives._seek_string(input=input, length=130)
-    primitives._seek_pad(input=input, length=530)
+    primitives._seek_forward(input=input, length=530)
     host_name = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=2)
+    primitives._seek_forward(input=input, length=2)
     container_name = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=596)
+    primitives._seek_forward(input=input, length=596)
     area_name = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=2)
+    primitives._seek_forward(input=input, length=2)
     derived_from = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=596)
+    primitives._seek_forward(input=input, length=596)
     based_on = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=528)
+    primitives._seek_forward(input=input, length=528)
     galaxy_name = primitives._seek_string_var_len(input=input)
 
     # Trying to figure out whether this first
@@ -54,9 +52,9 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     # Instances seem to be one byte shorter in this section.
     may_be_is_template = not(bool(primitives._seek_int(input=input, length=1)))
     if may_be_is_template:
-        primitives._seek_pad(input=input, length=1353)
+        primitives._seek_forward(input=input, length=1353)
     else:
-        primitives._seek_pad(input=input, length=1352)
+        primitives._seek_forward(input=input, length=1352)
 
     return types.AaObjectHeader(
         base_gobjectid=base_gobjectid,
@@ -76,8 +74,8 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
         galaxy_name=galaxy_name
     )
 
-def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
-    primitives._seek_pad(input=input, length=2)
+def _get_attr_type1(input: types.AaBinStream) -> types.AaObjectAttribute:
+    primitives._seek_forward(input=input, length=2)
     id = primitives._seek_int(input=input, length=2)
     name = primitives._seek_string_var_len(input=input, length=2, mult=2)
     attr_type = primitives._seek_int(input=input, length=1)
@@ -91,9 +89,9 @@ def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     locked = primitives._seek_int(input=input)
 
     parent_gobjectid = primitives._seek_int(input=input, length=4)
-    primitives._seek_pad(input=input, length=8)
+    primitives._seek_forward(input=input, length=8)
     parent_name = primitives._seek_string_var_len(input=input, length=2, mult=2)
-    primitives._seek_pad(input=input, length=2)
+    primitives._seek_forward(input=input, length=2)
     value = primitives._seek_object_value(input=input)
 
     return types.AaObjectAttribute(
@@ -110,11 +108,11 @@ def _get_userdefined_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
         value=value
     )
 
-def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
+def _get_attr_type2(input: types.AaBinStream) -> types.AaObjectAttribute:
     # Why is this backwards from the user defined attributes??
     # Thanks WW
     id = primitives._seek_int(input=input, length=2)
-    primitives._seek_pad(input=input, length=2)
+    primitives._seek_forward(input=input, length=2)
     attr_type = enums.AaDataType.Undefined
 
     # This needs more follow-up tests with multiple levels
@@ -122,9 +120,9 @@ def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
     # bytes are doing and where things like the lock/write
     # values end up.
     if not(primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE)):
-        primitives._seek_pad(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
+        primitives._seek_forward(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
         attr_type = primitives._seek_int(input=input, length=1)
-        primitives._seek_pad(input=input, length=11) # ???
+        primitives._seek_forward(input=input, length=11) # ???
 
     value = primitives._seek_object_value(input=input)
     return types.AaObjectAttribute(
@@ -144,37 +142,118 @@ def _get_builtin_attr(input: types.AaBinStream) -> types.AaObjectAttribute:
 def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     main_section_id = primitives._seek_int(input=input, length=16)
     template_name = primitives._seek_string(input=input)
-    primitives._seek_pad(input=input, length=596)
+    primitives._seek_forward(input=input, length=596)
+    sections = []
 
     # User Defined Attributes ???
-    uda_header = primitives._seek_int(input=input, length=16)
-    uda_count = primitives._seek_int(input=input)
-    uda_attrs = []
-    if uda_count > 0:
-        for i in range(uda_count):
-            attr = _get_userdefined_attr(input=input)
-            uda_attrs.append(attr)
+    header = primitives._seek_bytes(input=input, length=16)
+    count = primitives._seek_int(input=input)
+    attrs = []
+    if count > 0:
+        for i in range(count):
+            attrs.append(_get_attr_type1(input=input))
     primitives._seek_end_section(input=input)
+    sections.append(types.AaObjectAttributeSection(
+        header=header,
+        count=count,
+        attributes=attrs
+    ))
 
     # Then there seem to be four NoneType objects
     for i in range(4): primitives._seek_object_value(input=input)
 
     # Built-in attributes ???
-    builtin_count = primitives._seek_int(input=input)
-    builtin_attrs = []
-    if builtin_count > 0:
-        for i in range(builtin_count):
-            attr = _get_builtin_attr(input=input)
-            builtin_attrs.append(attr)
+    header = None
+    count = primitives._seek_int(input=input)
+    attrs = []
+    if count > 0:
+        for i in range(count):
+            attrs.append(_get_attr_type2(input=input))
+    sections.append(types.AaObjectAttributeSection(
+        header=header,
+        count=count,
+        attributes=attrs
+    ))
+
+    # No clue
+    unk = primitives._seek_int(input=input) # ???
+    primitives._seek_forward(input=input, length=660)
+    primitives._seek_forward(input=input, length=20) # Attribute ???
+    primitives._seek_forward(input=input, length=664)
+    unk_header = primitives._seek_bytes(input=input, length=16)
+    unk_template_name = primitives._seek_string(input=input)
+    primitives._seek_forward(input=input, length=596)
+
+    # Hidden attributed ???
+    header = primitives._seek_bytes(input=input, length=16)
+    count = primitives._seek_int(input=input)
+    attrs = []
+    if count > 0:
+        for i in range(count):
+            attrs.append(_get_attr_type1(input=input))
+    primitives._seek_end_section(input=input)
+    sections.append(types.AaObjectAttributeSection(
+        header=header,
+        count=count,
+        attributes=attrs
+    ))
+
+    # Then there seem to be four NoneType objects
+    for i in range(4): primitives._seek_object_value(input=input)
+
+    header = None
+    count = primitives._seek_int(input=input)
+    attrs = []
+    if count > 0:
+        for i in range(count):
+            attrs.append(_get_attr_type2(input=input))
+    sections.append(types.AaObjectAttributeSection(
+        header=header,
+        count=count,
+        attributes=attrs
+    ))
+
+    # InputExtension?
+    primitives._seek_forward(input=input, length=18) # inherited input extension?
+    primitives._seek_forward(input=input, length=646)
+    primitives._seek_forward(input=input, length=20)
+    primitives._seek_string(input=input) #inputextension
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=20)
+    test = primitives._seek_string(input=input) # parent template name?
+    primitives._seek_forward(input=input, length=596)
+    header = primitives._seek_bytes(input=input, length=16)
+    count = primitives._seek_int(input=input)
+    attrs = []
+    if count > 0:
+        for i in range(count):
+            attrs.append(_get_attr_type1(input=input))
+    primitives._seek_end_section(input=input)
+    sections.append(types.AaObjectAttributeSection(
+        header=header,
+        count=count,
+        attributes=attrs
+    ))
+
+    # Then there seem to be four NoneType objects
+    for i in range(4): primitives._seek_object_value(input=input)
+
+    header = None
+    count = primitives._seek_int(input=input)
+    attrs = []
+    if count > 0:
+        for i in range(count):
+            attrs.append(_get_attr_type2(input=input))
+    sections.append(types.AaObjectAttributeSection(
+        header=header,
+        count=count,
+        attributes=attrs
+    ))
 
     return types.AaObjectContent(
         main_section_id=main_section_id,
         template_name=template_name,
-        uda_header=uda_header,
-        uda_count=uda_count,
-        uda_attrs=uda_attrs,
-        builtin_count=builtin_count,
-        builtin_attrs=builtin_attrs
+        attr_sections=sections
     )
 
 def explode_aaobject(

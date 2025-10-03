@@ -60,14 +60,16 @@ class AaObjectAttribute:
     value: AaObjectValue
 
 @dataclass
+class AaObjectAttributeSection:
+    header: bytes
+    count: int
+    attributes: list[AaObjectAttribute]
+
+@dataclass
 class AaObjectContent:
     main_section_id: int
     template_name: str
-    uda_header: int
-    uda_count: int
-    uda_attrs: list[AaObjectAttribute]
-    builtin_count: int
-    builtin_attrs: list[AaObjectAttribute]
+    attr_sections: list[AaObjectAttributeSection]
 
 @dataclass
 class AaObject:

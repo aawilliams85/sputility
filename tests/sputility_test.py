@@ -39,7 +39,9 @@ class sputility_tests(unittest.TestCase):
                 output_path=LOCAL_OUTPUT_AAOBJECT_PATH,
                 progress=None
             )
-            pprint.pprint(resp)
+            pprint.pprint(resp.header)
+            for section in resp.content.attr_sections:
+                pprint.pprint(section)
 
     def tearDown(self):
         pass
