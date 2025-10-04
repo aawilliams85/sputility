@@ -10,6 +10,7 @@ PATTERN_SECTION_INPUTEXTENSION = b'\x67\x02\x00\x00'
 PATTERN_SECTION_SCRIPTEXTENSION = b'\x64\x02\x00\x00'
 PATTERN_TEMPLATE_VALUE = b'\x00\x00\x00\x00'
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+PATTERN_END_OF_FILE = b'\x00\x00\x00\x00'
 
 def _filetime_to_datetime(input: bytes) -> datetime:
     filetime = struct.unpack('<Q', input[:8])[0]
@@ -31,6 +32,7 @@ def _seek_forward(input: types.AaBinStream, length: int):
     input.offset += length
 
 def _seek_bytes(input: types.AaBinStream, length: int = 4) -> bytes:
+    if ((input.offset + length) > len(input.data)): raise MemoryError(f'Memory bounds exceeded.  Size: {len(input.data):0X}, Offset: {input.offset:0X}, Length: {length:0X}.')
     value = input.data[input.offset:input.offset + length]
     input.offset += length
     return value

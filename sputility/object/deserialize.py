@@ -1,8 +1,9 @@
 import os
 import pprint
-import struct
 
+from . import attributes
 from . import enums
+from . import extensions
 from . import primitives
 from . import types
 
@@ -79,145 +80,6 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
         galaxy_name=galaxy_name
     )
 
-def _get_attr_type1(input: types.AaBinStream) -> types.AaObjectAttribute:
-    primitives._seek_forward(input=input, length=2)
-    id = primitives._seek_int(input=input, length=2)
-    name = primitives._seek_string_var_len(input=input, length=2, mult=2)
-    attr_type = primitives._seek_int(input=input, length=1)
-
-    # It seems like these are probably four-bytes eache
-    # but the enum ranges are small so maybe some bytes
-    # are really reserved?
-    array = bool(primitives._seek_int(input=input))
-    permission = primitives._seek_int(input=input)
-    write = primitives._seek_int(input=input)
-    locked = primitives._seek_int(input=input)
-
-    parent_gobjectid = primitives._seek_int(input=input, length=4)
-    primitives._seek_forward(input=input, length=8)
-    parent_name = primitives._seek_string_var_len(input=input, length=2, mult=2)
-    primitives._seek_forward(input=input, length=2)
-    value = primitives._seek_object_value(input=input)
-
-    return types.AaObjectAttribute(
-        id=id,
-        name=name,
-        attr_type=enums.AaDataType(attr_type),
-        array=array,
-        permission=enums.AaPermission(permission),
-        write=enums.AaWriteability(write),
-        locked=enums.AaLocked(locked),
-        parent_gobjectid=parent_gobjectid,
-        parent_name=parent_name,
-        source=None,
-        value=value,
-        primitive_name=None
-    )
-
-def _get_attr_type2(input: types.AaBinStream) -> types.AaObjectAttribute:
-    # Why is this backwards from the user defined attributes??
-    # Thanks WW
-    id = primitives._seek_int(input=input, length=2)
-    primitives._seek_forward(input=input, length=2)
-    attr_type = enums.AaDataType.Undefined
-
-    # This needs more follow-up tests with multiple levels
-    # of derivation.  It's not clear yet what some of these
-    # bytes are doing and where things like the lock/write
-    # values end up.
-    if not(primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE)):
-        primitives._seek_forward(input=input, length=4) # length of name FFFFFFFF or 00000000 ??
-        attr_type = primitives._seek_int(input=input, length=1)
-        primitives._seek_forward(input=input, length=11) # ???
-
-    value = primitives._seek_object_value(input=input)
-    return types.AaObjectAttribute(
-        id=id,
-        name=None,
-        attr_type=enums.AaDataType(attr_type),
-        array=None,
-        permission=None,
-        write=None,
-        locked=None,
-        parent_gobjectid=None,
-        parent_name=None,
-        source=None,
-        value=value,
-        primitive_name=None
-    )
-
-def _get_section_inputextension(input: types.AaBinStream) -> bytes:
-    print('>>>> START INPUTEXTENSION >>>>')
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    section_type = primitives._seek_int(input=input)
-    section_name = primitives._seek_string(input=input)
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=20) # header?
-    extension_name = primitives._seek_string(input=input)
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=20) # header?
-    object_name = primitives._seek_string(input=input) # this object or parent inherited from
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=16) # header?
-    attr_count = primitives._seek_int(input=input)
-    attrs = []
-    if attr_count > 0:
-        for i in range(attr_count):
-            attr = _get_attr_type1(input=input)
-            attr.name = f'{section_name}.{attr.name}'
-            attr.primitive_name = f'{section_name}_{extension_name}'
-            attrs.append(attr)
-    primitives._seek_end_section(input=input)
-
-    # ???
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE):
-        primitives._seek_object_value(input=input) # 1,2,4 unknown.  3 is a message queue for warnings from this section+extension?
-
-    attr_count = primitives._seek_int(input=input)
-    if attr_count > 0:
-        for i in range(attr_count):
-            attr = _get_attr_type2(input=input)
-            #attr.name = f'{section_name}.{attr.name}'
-            #attr.primitive_name = f'{section_name}_{extension_name}'
-            attrs.append(attr)
-            #pprint.pprint(attr)
-    #primitives._seek_end_section(input=input)
-
-    #pprint.pprint(attrs)
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    print('>>>> END INPUTEXTENSION >>>>')
-
-def _get_section_scriptextension(input: types.AaBinStream) -> bytes:
-    print('>>>> START SCRIPTEXTENSION >>>>')
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    section_type = primitives._seek_int(input=input)
-    section_name = primitives._seek_string(input=input)
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=20) # header?
-    extension_name = primitives._seek_string(input=input)
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=20) # header?
-    object_name = primitives._seek_string(input=input) # this object or parent inherited from
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=16) # header?
-    primitives._seek_forward(input=input, length=12)
-
-    # ???
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE):
-        primitives._seek_object_value(input=input) # 1,2,4 unknown.  3 is a message queue for warnings from this section+extension?
-
-    attr_count = primitives._seek_int(input=input)
-    attrs = []
-    if attr_count > 0:
-        for i in range(attr_count):
-            attrs.append(_get_attr_type2(input=input))
-
-    #pprint.pprint(attrs)
-    #print(len(attrs))
-    print(section_name)
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    print('>>>> END SCRIPTEXTENSION >>>>')
-
 def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     print('>>>> START CONTENT >>>>')
     print(f'>>>>>>>> OFFSET {input.offset:0X}')
@@ -232,7 +94,7 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     attrs = []
     if count > 0:
         for i in range(count):
-            attrs.append(_get_attr_type1(input=input))
+            attrs.append(attributes.get_attr_type1(input=input))
     primitives._seek_end_section(input=input)
     sections.append(types.AaObjectAttributeSection(
         header=header,
@@ -249,7 +111,7 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     attrs = []
     if count > 0:
         for i in range(count):
-            attrs.append(_get_attr_type2(input=input))
+            attrs.append(attributes.get_attr_type2(input=input))
     sections.append(types.AaObjectAttributeSection(
         header=header,
         count=count,
@@ -271,7 +133,7 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     attrs = []
     if count > 0:
         for i in range(count):
-            attrs.append(_get_attr_type1(input=input))
+            attrs.append(attributes.get_attr_type1(input=input))
     primitives._seek_end_section(input=input)
     sections.append(types.AaObjectAttributeSection(
         header=header,
@@ -287,7 +149,7 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     attrs = []
     if count > 0:
         for i in range(count):
-            attrs.append(_get_attr_type2(input=input))
+            attrs.append(attributes.get_attr_type2(input=input))
     sections.append(types.AaObjectAttributeSection(
         header=header,
         count=count,
@@ -296,12 +158,15 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
 
     # InputExtension sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_INPUTEXTENSION):
-        _get_section_inputextension(input=input)
+        extensions.get_section_inputextension(input=input)
 
     # ScriptExtension sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_SCRIPTEXTENSION):
-        _get_section_scriptextension(input=input)
+        extensions.get_section_scriptextension(input=input)
 
+    # Don't yet know how to tell if this will be present.
+    # Only templates?
+    '''
     # GUID sections???
     guid1 = primitives._seek_bytes(input=input, length=512)
     guid2 = primitives._seek_bytes(input=input, length=512)
@@ -313,12 +178,13 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     # Where did we leave off with the source file that hasn't been decoded yet
     print(f'>>>>>>>> OFFSET {input.offset:0X}')
     print('>>>> END CONTENT >>>>')
+    '''
 
     return types.AaObjectContent(
         main_section_id=main_section_id,
         template_name=template_name,
         attr_sections=sections,
-        codebase=codebase
+        codebase=None
     )
 
 def explode_aaobject(
