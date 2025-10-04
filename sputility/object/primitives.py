@@ -5,9 +5,10 @@ from warnings import warn
 from . import enums
 from . import types
 
-PATTERN_TEMPLATE_VALUE = b'\x00\x00\x00\x00'
-PATTERN_OBJECT_SCRIPT = b'\x64\x02\x00\x00'
 PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
+PATTERN_SECTION_INPUTEXTENSION = b'\x67\x02\x00\x00'
+PATTERN_SECTION_SCRIPTEXTENSION = b'\x64\x02\x00\x00'
+PATTERN_TEMPLATE_VALUE = b'\x00\x00\x00\x00'
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
 def _filetime_to_datetime(input: bytes) -> datetime:
@@ -230,7 +231,7 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
     header = _seek_bytes(input=input, length=16)
     if header != PATTERN_OBJECT_VALUE:
         warn(f'Object value unexpected header: {header}')
-        if raise_mismatch: raise Exception('Pattern mismatch.')
+        if raise_mismatch: raise Exception(f'Pattern mismatch at {input.offset:0X}')
 
     datatype = _seek_int(input=input, length=1)
     value = None
@@ -296,5 +297,5 @@ def _seek_end_section(input: types.AaBinStream, raise_mismatch: bool = True):
     value = _seek_bytes(input=input, length=8)
     if value != PATTERN_END:
         warn(f'End Section unexpected value: {value}')
-        if raise_mismatch: raise Exception('Pattern mismatch.')
+        if raise_mismatch: raise Exception(f'Pattern mismatch at {input.offset:0X}')
     return value

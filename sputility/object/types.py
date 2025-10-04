@@ -58,6 +58,7 @@ class AaObjectAttribute:
     parent_name: str
     source: enums.AaSource
     value: AaObjectValue
+    primitive_name: str
 
 @dataclass
 class AaObjectAttributeSection:
@@ -80,6 +81,7 @@ class AaObjectContent:
     main_section_id: int
     template_name: str
     attr_sections: list[AaObjectAttributeSection]
+    codebase: str           # <Obj>.CodeBase
 
 @dataclass
 class AaObject:

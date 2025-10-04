@@ -10,6 +10,8 @@ PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
+    print('>>>> START HEADER >>>>')
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
     base_gobjectid = primitives._seek_int(input=input)
 
     # If this is a template there will be four null bytes
@@ -57,6 +59,8 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     else:
         primitives._seek_forward(input=input, length=1352)
 
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    print('>>>> END HEADER >>>>')
     return types.AaObjectHeader(
         base_gobjectid=base_gobjectid,
         is_template=is_template,
@@ -105,8 +109,9 @@ def _get_attr_type1(input: types.AaBinStream) -> types.AaObjectAttribute:
         locked=enums.AaLocked(locked),
         parent_gobjectid=parent_gobjectid,
         parent_name=parent_name,
-        source=enums.AaSource.UserDefined,
-        value=value
+        source=None,
+        value=value,
+        primitive_name=None
     )
 
 def _get_attr_type2(input: types.AaBinStream) -> types.AaObjectAttribute:
@@ -136,33 +141,55 @@ def _get_attr_type2(input: types.AaBinStream) -> types.AaObjectAttribute:
         locked=None,
         parent_gobjectid=None,
         parent_name=None,
-        source=enums.AaSource.BuiltIn,
-        value=value
-    )
-
-def _get_attr_type3(input: types.AaBinStream) -> types.AaObjectAttribute:
-    id = primitives._seek_int(input=input, length=2)
-    unk01 = primitives._seek_int(input=input, length=2)
-    unk02 = primitives._seek_int(input=input)
-    unk03 = primitives._seek_int(input=input)
-    unk04 = primitives._seek_int(input=input)
-    unk05 = primitives._seek_int(input=input)
-    value = primitives._seek_object_value(input=input)
-    return types.AaObjectAttribute(
-        id=id,
-        name=None,
-        attr_type=enums.AaDataType(value.datatype),
-        array=None,
-        permission=None,
-        write=None,
-        locked=None,
-        parent_gobjectid=None,
-        parent_name=None,
         source=None,
-        value=value
+        value=value,
+        primitive_name=None
     )
 
-def _get_script_section(input: types.AaBinStream) -> bytes:
+def _get_section_inputextension(input: types.AaBinStream) -> bytes:
+    print('>>>> START INPUTEXTENSION >>>>')
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    section_type = primitives._seek_int(input=input)
+    section_name = primitives._seek_string(input=input)
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=20) # header?
+    extension_name = primitives._seek_string(input=input)
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=20) # header?
+    object_name = primitives._seek_string(input=input) # this object or parent inherited from
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=16) # header?
+    attr_count = primitives._seek_int(input=input)
+    attrs = []
+    if attr_count > 0:
+        for i in range(attr_count):
+            attr = _get_attr_type1(input=input)
+            attr.name = f'{section_name}.{attr.name}'
+            attr.primitive_name = f'{section_name}_{extension_name}'
+            attrs.append(attr)
+    primitives._seek_end_section(input=input)
+
+    # ???
+    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE):
+        primitives._seek_object_value(input=input) # 1,2,4 unknown.  3 is a message queue for warnings from this section+extension?
+
+    attr_count = primitives._seek_int(input=input)
+    if attr_count > 0:
+        for i in range(attr_count):
+            attr = _get_attr_type2(input=input)
+            #attr.name = f'{section_name}.{attr.name}'
+            #attr.primitive_name = f'{section_name}_{extension_name}'
+            attrs.append(attr)
+            #pprint.pprint(attr)
+    #primitives._seek_end_section(input=input)
+
+    #pprint.pprint(attrs)
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    print('>>>> END INPUTEXTENSION >>>>')
+
+def _get_section_scriptextension(input: types.AaBinStream) -> bytes:
+    print('>>>> START SCRIPTEXTENSION >>>>')
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
     section_type = primitives._seek_int(input=input)
     section_name = primitives._seek_string(input=input)
     primitives._seek_forward(input=input, length=596)
@@ -174,18 +201,26 @@ def _get_script_section(input: types.AaBinStream) -> bytes:
     primitives._seek_forward(input=input, length=596)
     primitives._seek_forward(input=input, length=16) # header?
     primitives._seek_forward(input=input, length=12)
-    for i in range(4): primitives._seek_object_value(input=input) # NoneType blocks
+
+    # ???
+    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE):
+        primitives._seek_object_value(input=input) # 1,2,4 unknown.  3 is a message queue for warnings from this section+extension?
+
     attr_count = primitives._seek_int(input=input)
     attrs = []
     if attr_count > 0:
         for i in range(attr_count):
-            attrs.append(_get_attr_type3(input=input))
+            attrs.append(_get_attr_type2(input=input))
 
     #pprint.pprint(attrs)
     #print(len(attrs))
     print(section_name)
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    print('>>>> END SCRIPTEXTENSION >>>>')
 
 def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
+    print('>>>> START CONTENT >>>>')
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
     main_section_id = primitives._seek_int(input=input, length=16)
     template_name = primitives._seek_string(input=input)
     primitives._seek_forward(input=input, length=596)
@@ -259,55 +294,31 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         attributes=attrs
     ))
 
-    # InputExtension?
-    primitives._seek_forward(input=input, length=18) # inherited input extension?
-    primitives._seek_forward(input=input, length=646)
-    primitives._seek_forward(input=input, length=20)
-    primitives._seek_string(input=input) #inputextension
-    primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=20)
-    test = primitives._seek_string(input=input) # parent template name?
-    primitives._seek_forward(input=input, length=596)
-    header = primitives._seek_bytes(input=input, length=16)
-    count = primitives._seek_int(input=input)
-    attrs = []
-    if count > 0:
-        for i in range(count):
-            attrs.append(_get_attr_type1(input=input))
-    primitives._seek_end_section(input=input)
-    sections.append(types.AaObjectAttributeSection(
-        header=header,
-        count=count,
-        attributes=attrs
-    ))
+    # InputExtension sections
+    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_INPUTEXTENSION):
+        _get_section_inputextension(input=input)
 
-    # Then there seem to be four NoneType objects
-    for i in range(4): primitives._seek_object_value(input=input)
+    # ScriptExtension sections
+    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_SCRIPTEXTENSION):
+        _get_section_scriptextension(input=input)
 
-    header = None
-    count = primitives._seek_int(input=input)
-    attrs = []
-    if count > 0:
-        for i in range(count):
-            attrs.append(_get_attr_type2(input=input))
-    sections.append(types.AaObjectAttributeSection(
-        header=header,
-        count=count,
-        attributes=attrs
-    ))
+    # GUID sections???
+    guid1 = primitives._seek_bytes(input=input, length=512)
+    guid2 = primitives._seek_bytes(input=input, length=512)
 
-    # Script sections
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_SCRIPT):
-        _get_script_section(input=input)
-
+    # Codebase ???
+    primitives._seek_forward(input=input, length=36)
+    codebase = primitives._seek_string(input=input)
 
     # Where did we leave off with the source file that hasn't been decoded yet
-    print(input.offset)
+    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    print('>>>> END CONTENT >>>>')
 
     return types.AaObjectContent(
         main_section_id=main_section_id,
         template_name=template_name,
-        attr_sections=sections
+        attr_sections=sections,
+        codebase=codebase
     )
 
 def explode_aaobject(
