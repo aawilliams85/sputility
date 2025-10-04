@@ -118,43 +118,9 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         attributes=attrs
     ))
 
-    # No clue
-    unk = primitives._seek_int(input=input) # ???
-    primitives._seek_forward(input=input, length=660)
-    primitives._seek_forward(input=input, length=20) # Attribute ???
-    primitives._seek_forward(input=input, length=664)
-    unk_header = primitives._seek_bytes(input=input, length=16)
-    unk_template_name = primitives._seek_string(input=input)
-    primitives._seek_forward(input=input, length=596)
-
-    # Hidden attributed ???
-    header = primitives._seek_bytes(input=input, length=16)
-    count = primitives._seek_int(input=input)
-    attrs = []
-    if count > 0:
-        for i in range(count):
-            attrs.append(attributes.get_attr_type1(input=input))
-    primitives._seek_end_section(input=input)
-    sections.append(types.AaObjectAttributeSection(
-        header=header,
-        count=count,
-        attributes=attrs
-    ))
-
-    # Then there seem to be four NoneType objects
-    for i in range(4): primitives._seek_object_value(input=input)
-
-    header = None
-    count = primitives._seek_int(input=input)
-    attrs = []
-    if count > 0:
-        for i in range(count):
-            attrs.append(attributes.get_attr_type2(input=input))
-    sections.append(types.AaObjectAttributeSection(
-        header=header,
-        count=count,
-        attributes=attrs
-    ))
+    # UserDefined sections
+    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_USERDEFINEDEXTENSION):
+        extensions.get_section_userdefinedextension(input=input)
 
     # InputExtension sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_INPUTEXTENSION):
