@@ -30,6 +30,13 @@ class AaDataType(IntEnum):
     ArrayStatusType = 73
     ArrayDataTypeType = 74
 
+class AaExtension(IntEnum):
+    Undefined = -1
+    UserDefinedExtension = 586  # 4A 02 00 00
+    ScriptExtension = 612       # 64 02 00 00
+    InputExtension = 615        # 67 02 00 00
+    HistoryExtension = 618      # 6A 02 00 00
+
 class AaLocked(IntEnum):
     Undefined = -1
     Unlocked = 0

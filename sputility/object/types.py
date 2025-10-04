@@ -75,7 +75,6 @@ class AaObjectScriptSection:
     type: int
     name: str
 
-
 @dataclass
 class AaObjectContent:
     main_section_id: int
