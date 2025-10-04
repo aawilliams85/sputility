@@ -300,6 +300,10 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_SCRIPT):
         _get_script_section(input=input)
 
+
+    # Where did we leave off with the source file that hasn't been decoded yet
+    print(input.offset)
+
     return types.AaObjectContent(
         main_section_id=main_section_id,
         template_name=template_name,
@@ -334,6 +338,8 @@ def explode_aaobject(
     header = _get_header(input=aaobj)
     content = _get_content(input=aaobj)
     return types.AaObject(
+        size=len(aaobj.data),
+        offset=aaobj.offset,
         header=header,
         content=content
     )

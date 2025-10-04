@@ -83,5 +83,7 @@ class AaObjectContent:
 
 @dataclass
 class AaObject:
+    size: int
+    offset: int
     header: AaObjectHeader
     content: AaObjectContent
