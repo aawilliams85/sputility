@@ -8,7 +8,7 @@ def get_attr_type1(input: types.AaBinStream) -> types.AaObjectAttribute:
     name = primitives._seek_string_var_len(input=input, length=2, mult=2)
     attr_type = primitives._seek_int(input=input, length=1)
 
-    # It seems like these are probably four-bytes eache
+    # It seems like these are probably four-bytes each
     # but the enum ranges are small so maybe some bytes
     # are really reserved?
     array = bool(primitives._seek_int(input=input))

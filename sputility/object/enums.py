@@ -32,21 +32,32 @@ class AaDataType(IntEnum):
 
 class AaExtension(IntEnum):
     Undefined = -1
-    UserDefined = 586   # 4A 02 00 00
-    Script = 612        # 64 02 00 00
-    Input = 615         # 67 02 00 00
-    Alarm = 617         # 69 02 00 00
-    History = 618       # 6A 02 00 00
-    InputOutput1 = 619  # 6B 02 00 00
-    InputOutput2 = 620  # 6C 02 00 00
-    Symbol1 = 621       # 6D 02 00 00
-    Symbol2 = 622       # 6E 02 00 00
-    Analog = 625        # 71 02 00 00
-    RateOfChange = 636  # 7C 02 00 00
-    Boolean = 640       # 80 02 00 00
-    Statistics = 641    # 81 02 00 00
-    BadValueAlarm = 642 # 82 02 00 00
-    LogChange = 644     # 84 02 00 00
+    UserDefined = 586
+    Script = 612
+    Input = 615
+    Alarm = 617
+    History = 618
+    InputOutput1 = 619
+    InputOutput2 = 620
+    Symbol1 = 621
+    Symbol2 = 622
+    Analog = 625
+    StatisticsAnalog = 626
+    DeviationAlarm = 627
+    DeviationAlarmMinor = 628
+    DeviationAlarmMajor = 629
+    LimitAlarm = 630
+    LimitAlarmHi = 631
+    LimitAlarmHiHi = 632
+    LimitAlarmLo = 633
+    LimitAlarmLoLo = 634
+    RateOfChange = 636
+    RateOfChangeUp = 637
+    RateOfChangeDown = 638
+    Boolean = 640
+    StatisticsBoolean = 641
+    BadValueAlarm = 642
+    LogDataChange = 644
 
 class AaLocked(IntEnum):
     Undefined = -1

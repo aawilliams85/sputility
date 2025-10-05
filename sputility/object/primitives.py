@@ -28,7 +28,6 @@ def _lookahead_bytes(input: types.AaBinStream, length: int) -> bytes:
     return value
 
 def _lookahead_int(input: types.AaBinStream, length: int = 4) -> int:
-    print(f'{input.offset:0X}')
     value = int.from_bytes(_lookahead_bytes(input=input, length=length), 'little')
     return value
 
@@ -42,11 +41,16 @@ def _lookahead_multipattern(input: types.AaBinStream, patterns: list[bytes]) -> 
     return False
 
 def _lookahead_extension(input: types.AaBinStream) -> bool:
-    if _lookahead_int(input=input) in enums.AaExtension._value2member_map_: return True
+    extension = _lookahead_int(input=input)
+    if extension in enums.AaExtension: return True
+    warn(f'Unexpected extension {extension} at offset {input.offset:0X}, or end of extensions.')
     return False
 
 def _seek_forward(input: types.AaBinStream, length: int):
-    input.offset += length
+    # Anywhere this is called, basically means that I don't
+    # understand what a range of bytes means and want to skip
+    # past it.
+    _seek_bytes(input=input, length=length)
 
 def _seek_bytes(input: types.AaBinStream, length: int = 4) -> bytes:
     if ((input.offset + length) > len(input.data)): raise MemoryError(f'Memory bounds exceeded.  Size: {len(input.data):0X}, Offset: {input.offset:0X}, Length: {length:0X}.')

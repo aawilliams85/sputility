@@ -5,7 +5,7 @@ from . import enums
 from . import primitives
 from . import types
 
-PRINT_DEBUG_INFO = True
+PRINT_DEBUG_INFO = False
 
 def _get_attribute_fullname(section_name: str, attribute_name: str) -> str:
     if (attribute_name is not None) and (section_name is not None):
@@ -23,13 +23,13 @@ def _get_primitive_name(section_name: str, extension_name: str) -> str:
 
 def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     if PRINT_DEBUG_INFO: print(f'>>>> START EXTENSION - OFFSET {input.offset:0X} >>>>')
-    section_type = primitives._seek_int(input=input)
-    section_name = primitives._seek_string(input=input)
-    if PRINT_DEBUG_INFO: print(f'>>>>>>>> NAME {section_name}')
+    extension_type = primitives._seek_int(input=input)
+    instance_name = primitives._seek_string(input=input)
+    if PRINT_DEBUG_INFO: print(f'>>>>>>>> NAME {instance_name}')
     primitives._seek_forward(input=input, length=596)
     primitives._seek_forward(input=input, length=20) # header?
     extension_name = primitives._seek_string(input=input)
-    primitive_name = _get_primitive_name(section_name=section_name, extension_name=extension_name)
+    primitive_name = _get_primitive_name(section_name=instance_name, extension_name=extension_name)
     primitives._seek_forward(input=input, length=596)
     primitives._seek_forward(input=input, length=20) # header?
     parent_name = primitives._seek_string(input=input) # this object or parent inherited from
@@ -40,10 +40,9 @@ def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     if attr_count > 0:
         for i in range(attr_count):
             attr = attributes.get_attr_type1(input=input)
-            attr.name = _get_attribute_fullname(section_name=section_name, attribute_name=attr.name)
+            attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-            #pprint.pprint(attr)
     primitives._seek_end_section(input=input)
 
     # Message queues for this extension?
@@ -54,24 +53,20 @@ def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     messages = []
     for i in range(4):
         messages.append(primitives._seek_object_value(input=input))
-    #pprint.pprint(messages)
 
     attr_count = primitives._seek_int(input=input)
     if attr_count > 0:
         for i in range(attr_count):
             attr = attributes.get_attr_type2(input=input)
-            attr.name = _get_attribute_fullname(section_name=section_name, attribute_name=attr.name)
+            attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-            #pprint.pprint(attr)
-    #primitives._seek_end_section(input=input)
 
-    #pprint.pprint(attrs)
+    print(f'Instance Name: {instance_name}, Extension Type: {extension_type}, Extension Name: {extension_name}, Type: {enums.AaExtension(extension_type).name}')
     if PRINT_DEBUG_INFO: print(f'>>>> END EXTENSION - OFFSET {input.offset:0X} >>>>')
-    
     return types.AaObjectExtension(
-        extension_type=enums.AaExtension(section_type),
-        instance_name=section_name,
+        extension_type=enums.AaExtension(extension_type),
+        instance_name=instance_name,
         extension_name=extension_name,
         primitive_name=primitive_name,
         parent_name=parent_name,
