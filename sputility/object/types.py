@@ -68,12 +68,13 @@ class AaObjectAttributeSection:
 
 @dataclass
 class AaObjectExtension:
-    section_type: enums.AaExtension
-    section_name: str
+    extension_type: enums.AaExtension
+    instance_name: str
     extension_name: str
     primitive_name: str
     parent_name: str
     attributes: list[AaObjectAttribute]
+    messages: list[AaObjectValue]
 
 @dataclass
 class AaObjectContent:

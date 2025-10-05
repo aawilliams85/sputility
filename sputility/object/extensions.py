@@ -43,12 +43,18 @@ def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
             attr.name = _get_attribute_fullname(section_name=section_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-            pprint.pprint(attr)
+            #pprint.pprint(attr)
     primitives._seek_end_section(input=input)
 
-    # ???
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE):
-        primitives._seek_object_value(input=input) # 1,2,4 unknown.  3 is a message queue for warnings from this section+extension?
+    # Message queues for this extension?
+    # 1 - Object errors
+    # 2 - Symbol warnings
+    # 3 - Object warnings
+    # 4 - ???
+    messages = []
+    for i in range(4):
+        messages.append(primitives._seek_object_value(input=input))
+    #pprint.pprint(messages)
 
     attr_count = primitives._seek_int(input=input)
     if attr_count > 0:
@@ -57,18 +63,18 @@ def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
             attr.name = _get_attribute_fullname(section_name=section_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-            pprint.pprint(attr)
-            print(f'{input.offset:0X}')
+            #pprint.pprint(attr)
     #primitives._seek_end_section(input=input)
 
     #pprint.pprint(attrs)
     if PRINT_DEBUG_INFO: print(f'>>>> END EXTENSION - OFFSET {input.offset:0X} >>>>')
     
     return types.AaObjectExtension(
-        section_type=enums.AaExtension(section_type),
-        section_name=section_name,
+        extension_type=enums.AaExtension(section_type),
+        instance_name=section_name,
         extension_name=extension_name,
         primitive_name=primitive_name,
         parent_name=parent_name,
-        attributes=attrs
+        attributes=attrs,
+        messages=messages
     )

@@ -6,36 +6,6 @@ from . import enums
 from . import types
 
 PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
-
-PATTERN_EXTENSION_ALARM = b'\x69\x02\x00\x00'
-PATTERN_EXTENSION_BADVALUEALARM = b'\x82\x02\x00\x00'
-PATTERN_EXTENSION_BOOLEAN = b'\x80\x02\x00\x00'
-PATTERN_EXTENSION_HISTORY = b'\x6A\x02\x00\x00'
-PATTERN_EXTENSION_INPUT = b'\x67\x02\x00\x00'
-PATTERN_EXTENSION_INPUTOUTPUT1 = b'\x6B\x02\x00\x00'
-PATTERN_EXTENSION_INPUTOUTPUT2 = b'\x6C\x02\x00\x00'
-PATTERN_EXTENSION_LOGCHANGE = b'\x84\x02\x00\x00'
-PATTERN_EXTENSION_SCRIPT = b'\x64\x02\x00\x00'
-PATTERN_EXTENSION_STATISTICS = b'\x81\x02\x00\x00'
-PATTERN_EXTENSION_SYMBOL1 = b'\x6D\x02\x00\x00'
-PATTERN_EXTENSION_SYMBOL2 = b'\x6E\x02\x00\x00'
-PATTERN_EXTENSION_USERDEFINED = b'\x4A\x02\x00\x00'
-PATTERN_EXTENSIONS = [
-    PATTERN_EXTENSION_ALARM,
-    PATTERN_EXTENSION_BADVALUEALARM,
-    PATTERN_EXTENSION_BOOLEAN, 
-    PATTERN_EXTENSION_HISTORY, 
-    PATTERN_EXTENSION_INPUT, 
-    PATTERN_EXTENSION_INPUTOUTPUT1,
-    PATTERN_EXTENSION_INPUTOUTPUT2,
-    PATTERN_EXTENSION_LOGCHANGE,
-    PATTERN_EXTENSION_SCRIPT, 
-    PATTERN_EXTENSION_STATISTICS,
-    PATTERN_EXTENSION_SYMBOL1,
-    PATTERN_EXTENSION_SYMBOL2,
-    PATTERN_EXTENSION_USERDEFINED
-]
-
 PATTERN_TEMPLATE_VALUE = b'\x00\x00\x00\x00'
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 PATTERN_END_OF_FILE = b'\x00\x00\x00\x00'
@@ -52,6 +22,16 @@ def _ticks_to_timedelta(input: int) -> timedelta:
     td = timedelta(seconds=total_seconds)
     return td
 
+def _lookahead_bytes(input: types.AaBinStream, length: int) -> bytes:
+    if ((input.offset + length) > len(input.data)): raise MemoryError(f'Memory bounds exceeded.  Size: {len(input.data):0X}, Offset: {input.offset:0X}, Length: {length:0X}.')
+    value = input.data[input.offset:input.offset + length]
+    return value
+
+def _lookahead_int(input: types.AaBinStream, length: int = 4) -> int:
+    print(f'{input.offset:0X}')
+    value = int.from_bytes(_lookahead_bytes(input=input, length=length), 'little')
+    return value
+
 def _lookahead_pattern(input: types.AaBinStream, pattern: bytes) -> bool:
     actual = input.data[input.offset:input.offset + len(pattern)]
     return (actual == pattern)
@@ -59,6 +39,10 @@ def _lookahead_pattern(input: types.AaBinStream, pattern: bytes) -> bool:
 def _lookahead_multipattern(input: types.AaBinStream, patterns: list[bytes]) -> bool:
     for x in patterns:
         if _lookahead_pattern(input=input, pattern=x): return True
+    return False
+
+def _lookahead_extension(input: types.AaBinStream) -> bool:
+    if _lookahead_int(input=input) in enums.AaExtension._value2member_map_: return True
     return False
 
 def _seek_forward(input: types.AaBinStream, length: int):
@@ -133,6 +117,7 @@ def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
 
     refb_text = _seek_string_var_len(input=obj)
     _seek_forward(input=obj, length=20)
+    warn('ReferenceType not fully decoded yet.')
     return types.AaReference(
         unk01=unk01,
         refA=refa_text,
@@ -140,8 +125,14 @@ def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
     )
 
 def _seek_status_section(input: types.AaBinStream) -> bytes:
+    warn('StatusType not decoded yet.')
     obj = _seek_binstream(input=input)
     value = _seek_bytes(input=obj, length=len(obj.data))
+    return value
+
+def _seek_datatype_section(input: types.AaBinStream) -> bytes:
+    warn('DataTypeType not decoded yet.')
+    value = _seek_bytes(input=input)
     return value
 
 def _seek_qualifiedenum_section(input: types.AaBinStream) -> types.AaQualifiedEnum:
@@ -291,6 +282,8 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
             value = _seek_reference_section(input=input)
         case enums.AaDataType.StatusType.value:
             value = _seek_status_section(input=input)
+        case enums.AaDataType.DataTypeType.value:
+            value = _seek_datatype_section(input=input)
         case enums.AaDataType.QualifiedEnumType.value:
             value = _seek_qualifiedenum_section(input=input)
         case enums.AaDataType.QualifiedStructType.value:
@@ -316,7 +309,7 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
         case enums.AaDataType.ArrayDataTypeType.value:
             value = _seek_array_datatype(input=input)
         case _:
-            raise NotImplementedError(f'Data type {datatype} not implemented.')
+            raise NotImplementedError(f'Data type {datatype} not implemented at offset {input.offset:0X}.')
     return types.AaObjectValue(
         header=header,
         datatype=enums.AaDataType(datatype),

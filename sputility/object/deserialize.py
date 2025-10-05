@@ -113,14 +113,8 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         attributes=attrs
     ))
 
-    # Typical order?
-    ################
-    # UserDefined
-    # InputExtension
-    # ScriptExtension
-    # HistoryExtension
     exts = []
-    while primitives._lookahead_multipattern(input=input, patterns=primitives.PATTERN_EXTENSIONS):
+    while primitives._lookahead_extension(input=input):
         exts.append(extensions.get_extension(input=input))
 
     # Don't yet know how to tell if this will be present.

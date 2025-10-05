@@ -41,6 +41,8 @@ class AaExtension(IntEnum):
     InputOutput2 = 620  # 6C 02 00 00
     Symbol1 = 621       # 6D 02 00 00
     Symbol2 = 622       # 6E 02 00 00
+    Analog = 625        # 71 02 00 00
+    RateOfChange = 636  # 7C 02 00 00
     Boolean = 640       # 80 02 00 00
     Statistics = 641    # 81 02 00 00
     BadValueAlarm = 642 # 82 02 00 00
