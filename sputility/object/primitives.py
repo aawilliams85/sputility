@@ -129,21 +129,21 @@ def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
 
     refb_text = _seek_string_var_len(input=obj)
     _seek_forward(input=obj, length=20)
-    warn('ReferenceType not fully decoded yet.')
+    warn(f'ReferenceType not fully decoded yet, offset: {input.offset:0X}.')
     return types.AaReference(
         unk01=unk01,
         refA=refa_text,
         refB=refb_text
     )
 
-def _seek_status_section(input: types.AaBinStream) -> bytes:
-    warn('StatusType not decoded yet.')
+def _seek_status_section(input: types.AaBinStream) -> int:
+    warn(f'StatusType not decoded yet, offset: {input.offset:0X}.')
     obj = _seek_binstream(input=input)
     value = _seek_bytes(input=obj, length=len(obj.data))
     return value
 
-def _seek_datatype_section(input: types.AaBinStream) -> bytes:
-    warn('DataTypeType not decoded yet.')
+def _seek_datatype_section(input: types.AaBinStream) -> int:
+    warn(f'DataTypeType not decoded yet, offset: {input.offset:0X}.')
     value = _seek_bytes(input=input)
     return value
 
@@ -160,10 +160,21 @@ def _seek_qualifiedenum_section(input: types.AaBinStream) -> types.AaQualifiedEn
         attribute_id=attribute_id
     )
 
-def _seek_qualifiedstruct_section(input: types.AaBinStream) -> bytes:
+def _seek_qualifiedstruct_section(input: types.AaBinStream) -> types.AaQualifiedStruct:
+    warn(f'QualifiedStruct not decoded yet, offset: {input.offset:0X}.')
     obj = _seek_binstream(input=input)
-    value = _seek_bytes(input=obj, length=len(obj.data))
-    return value
+    unk01 = _seek_int(input=obj)
+    unk02 = _seek_int(input=obj)
+    unk03 = _seek_int(input=obj, length=2)
+    unk04 = _seek_int(input=obj, length=2)
+    unk05 = _seek_int(input=obj)
+    return types.AaQualifiedStruct(
+        unk01=unk01,
+        unk02=unk02,
+        unk03=unk03,
+        unk04=unk04,
+        unk05=unk05
+    )
 
 def _seek_international_string_value_section(input: types.AaBinStream) -> str:
     # Buried inside the attribute section, there are string fields
@@ -323,7 +334,6 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
         case _:
             raise NotImplementedError(f'Data type {datatype} not implemented at offset {input.offset:0X}.')
     return types.AaObjectValue(
-        header=header,
         datatype=enums.AaDataType(datatype),
         value=value
     )

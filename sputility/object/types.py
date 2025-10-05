@@ -28,7 +28,7 @@ class AaObjectHeader:
 
 @dataclass
 class AaReference:
-    unk01: bytes
+    unk01: int
     refA: str
     refB: str
 
@@ -36,14 +36,21 @@ class AaReference:
 class AaQualifiedEnum:
     value: str
     ordinal: int
-    primitive_id: bytes
-    attribute_id: bytes
+    primitive_id: int
+    attribute_id: int
+
+@dataclass
+class AaQualifiedStruct:
+    unk01: int
+    unk02: int
+    unk03: int
+    unk04: int
+    unk05: int
 
 @dataclass
 class AaObjectValue:
-    header: bytes = field(repr=False)
     datatype: enums.AaDataType
-    value: bytes | bool | int | float | str | datetime | timedelta | list | AaReference | AaQualifiedEnum
+    value: bool | int | float | str | datetime | timedelta | list | AaReference | AaQualifiedEnum
 
 @dataclass
 class AaObjectAttribute:
@@ -59,12 +66,6 @@ class AaObjectAttribute:
     source: enums.AaSource
     value: AaObjectValue
     primitive_name: str
-
-@dataclass
-class AaObjectAttributeSection:
-    header: bytes
-    count: int
-    attributes: list[AaObjectAttribute]
 
 @dataclass
 class AaObjectExtension:

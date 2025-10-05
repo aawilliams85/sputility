@@ -1,6 +1,7 @@
 import json
 from dataclasses import asdict
 import os
+import pprint
 
 from . import attributes
 from . import enums
@@ -215,7 +216,19 @@ def explode_aaobject(
     obj = deserialize_aaobject(input)
     object_path = os.path.join(output_path, obj.header.tagname)
     os.makedirs(object_path, exist_ok=True)
+
+    # Object header info
     header_path = os.path.join(object_path, 'header.json')
     with open(header_path, 'w') as f:
         f.write(json.dumps(asdict(obj.header), indent=4))
-    return deserialize_aaobject(input)
+
+    # Object extensions
+    for ext in obj.extensions:
+        ext_path = os.path.join(object_path, 'extensions', enums.AaExtension(ext.extension_type).name)
+        os.makedirs(ext_path, exist_ok=True)
+
+        ext_file = os.path.join(ext_path, f'{ext.primitive_name}.json')
+        with open(ext_file, 'w') as f:
+            f.write(json.dumps(asdict(ext), indent=4, default=str))
+
+    return obj
