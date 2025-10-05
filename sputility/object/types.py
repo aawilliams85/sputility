@@ -67,19 +67,20 @@ class AaObjectAttributeSection:
     attributes: list[AaObjectAttribute]
 
 @dataclass
-class AaObjectScript:
-    test: int
-
-@dataclass
-class AaObjectScriptSection:
-    type: int
-    name: str
+class AaObjectExtensionSection:
+    section_type: enums.AaExtension
+    section_name: str
+    extension_name: str
+    primitive_name: str
+    parent_name: str
+    attributes: list[AaObjectAttribute]
 
 @dataclass
 class AaObjectContent:
     main_section_id: int
     template_name: str
     attr_sections: list[AaObjectAttributeSection]
+    extensions: list[AaObjectExtensionSection]
     codebase: str           # <Obj>.CodeBase
 
 @dataclass

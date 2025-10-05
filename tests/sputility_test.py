@@ -40,8 +40,10 @@ class sputility_tests(unittest.TestCase):
                 progress=None
             )
             #pprint.pprint(resp.header)
-            for section in resp.content.attr_sections:
-                pass
+            for section in resp.content.extensions:
+                print(section.primitive_name)
+                for attr in section.attributes:
+                    print(attr.id)
                 #pprint.pprint(section)
 
     def tearDown(self):

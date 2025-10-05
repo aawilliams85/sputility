@@ -118,21 +118,23 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         attributes=attrs
     ))
 
+
+    exts = []
     # UserDefined sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_USERDEFINEDEXTENSION):
-        extensions.get_section_extension(input=input)
+        exts.append(extensions.get_section_extension(input=input))
 
     # InputExtension sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_INPUTEXTENSION):
-        extensions.get_section_extension(input=input)
+        exts.append(extensions.get_section_extension(input=input))
 
     # ScriptExtension sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_SCRIPTEXTENSION):
-        extensions.get_section_extension(input=input)
+        exts.append(extensions.get_section_extension(input=input))
 
     # HistoryExtension sections
     while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_HISTORYEXTENSION):
-        extensions.get_section_extension(input=input)
+        exts.append(extensions.get_section_extension(input=input))
 
     # Don't yet know how to tell if this will be present.
     # Only templates?
@@ -154,6 +156,7 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         main_section_id=main_section_id,
         template_name=template_name,
         attr_sections=sections,
+        extensions=exts,
         codebase=None
     )
 
