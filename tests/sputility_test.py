@@ -34,6 +34,7 @@ class sputility_tests(unittest.TestCase):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAOBJECT_PATH, '*.txt')):
             spu = SPUtility()
+            print(file)
             resp = spu.explode_object(
                 input_path=file,
                 output_path=LOCAL_OUTPUT_AAOBJECT_PATH,

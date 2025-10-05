@@ -1,3 +1,5 @@
+import json
+from dataclasses import asdict
 import os
 
 from . import attributes
@@ -172,7 +174,6 @@ def deserialize_aaobject(input: str| bytes) -> types.AaObject:
     # from an *.aapkg file.
     data: bytes
     if isinstance(input, (str, os.PathLike)):
-        print(input)
         try:
             with open(input, 'rb') as file:
                 data = file.read()
@@ -207,8 +208,14 @@ def deserialize_aaobject(input: str| bytes) -> types.AaObject:
 def explode_aaobject(
     input: str | bytes,
     output_path: str
-):
+) -> types.AaObject:
     # Create output folder if it doesn't exist yet
     if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
 
+    obj = deserialize_aaobject(input)
+    object_path = os.path.join(output_path, obj.header.tagname)
+    os.makedirs(object_path, exist_ok=True)
+    header_path = os.path.join(object_path, 'header.json')
+    with open(header_path, 'w') as f:
+        f.write(json.dumps(asdict(obj.header), indent=4))
     return deserialize_aaobject(input)
