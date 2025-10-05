@@ -39,12 +39,14 @@ class sputility_tests(unittest.TestCase):
                 output_path=LOCAL_OUTPUT_AAOBJECT_PATH,
                 progress=None
             )
+            print(f'Parsed {resp.offset:0X} of {resp.size:0X} bytes')
             #pprint.pprint(resp.header)
             for section in resp.content.extensions:
-                print(section.primitive_name)
-                for attr in section.attributes:
-                    print(attr.id)
+                #print(section.primitive_name)
+                #for attr in section.attributes:
+                #    print(attr.id)
                 #pprint.pprint(section)
+                pass
 
     def tearDown(self):
         pass

@@ -1,14 +1,9 @@
 import os
-import pprint
 
 from . import attributes
-from . import enums
 from . import extensions
 from . import primitives
 from . import types
-
-PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
-PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     print('>>>> START HEADER >>>>')

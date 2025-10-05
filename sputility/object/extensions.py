@@ -5,6 +5,8 @@ from . import enums
 from . import primitives
 from . import types
 
+PRINT_DEBUG_INFO = True
+
 def _get_attribute_fullname(section_name: str, attribute_name: str) -> str:
     if (attribute_name is not None) and (section_name is not None):
         if (len(section_name) > 0):
@@ -20,11 +22,10 @@ def _get_primitive_name(section_name: str, extension_name: str) -> str:
     return ''
 
 def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
-    print('>>>> START EXTENSION >>>>')
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    if PRINT_DEBUG_INFO: print(f'>>>> START EXTENSION - OFFSET {input.offset:0X} >>>>')
     section_type = primitives._seek_int(input=input)
     section_name = primitives._seek_string(input=input)
-    print(f'>>>>>>>> NAME {section_name}')
+    if PRINT_DEBUG_INFO: print(f'>>>>>>>> NAME {section_name}')
     primitives._seek_forward(input=input, length=596)
     primitives._seek_forward(input=input, length=20) # header?
     extension_name = primitives._seek_string(input=input)
@@ -42,7 +43,7 @@ def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
             attr.name = _get_attribute_fullname(section_name=section_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-            #pprint.pprint(attr)
+            pprint.pprint(attr)
     primitives._seek_end_section(input=input)
 
     # ???
@@ -56,12 +57,12 @@ def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
             attr.name = _get_attribute_fullname(section_name=section_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-            #pprint.pprint(attr)
+            pprint.pprint(attr)
+            print(f'{input.offset:0X}')
     #primitives._seek_end_section(input=input)
 
     #pprint.pprint(attrs)
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    print('>>>> END EXTENSION >>>>')
+    if PRINT_DEBUG_INFO: print(f'>>>> END EXTENSION - OFFSET {input.offset:0X} >>>>')
     
     return types.AaObjectExtension(
         section_type=enums.AaExtension(section_type),
