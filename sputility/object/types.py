@@ -77,16 +77,9 @@ class AaObjectExtension:
     messages: list[AaObjectValue]
 
 @dataclass
-class AaObjectContent:
-    main_section_id: int
-    template_name: str
-    attr_sections: list[AaObjectAttributeSection]
-    extensions: list[AaObjectExtension]
-    codebase: str           # <Obj>.CodeBase
-
-@dataclass
 class AaObject:
     size: int
     offset: int
     header: AaObjectHeader
-    content: AaObjectContent
+    extensions: list[AaObjectExtension]
+    codebase: str           # <Obj>.CodeBase

@@ -33,6 +33,7 @@ class AaDataType(IntEnum):
 class AaExtension(IntEnum):
     Undefined = -1
     UserDefined = 586
+    Common = 611
     Script = 612
     Input = 615
     Output = 616

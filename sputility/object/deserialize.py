@@ -1,13 +1,14 @@
 import os
 
 from . import attributes
-from . import extensions
+from . import enums
 from . import primitives
 from . import types
 
+PRINT_DEBUG_INFO = False
+
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
-    print('>>>> START HEADER >>>>')
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
+    if PRINT_DEBUG_INFO: print(f'>>>> START HEADER - OFFSET {input.offset:0X} >>>>')
     base_gobjectid = primitives._seek_int(input=input)
 
     # If this is a template there will be four null bytes
@@ -49,14 +50,10 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     # byte being inserted means it is a template.
     #
     # Instances seem to be one byte shorter in this section.
-    may_be_is_template = not(bool(primitives._seek_int(input=input, length=1)))
-    if may_be_is_template:
-        primitives._seek_forward(input=input, length=1353)
-    else:
-        primitives._seek_forward(input=input, length=1352)
+    is_instance = primitives._seek_bool(input=input)
+    if not(is_instance): primitives._seek_bool(input=input)
 
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    print('>>>> END HEADER >>>>')
+    if PRINT_DEBUG_INFO: print(f'>>>> END HEADER - OFFSET {input.offset:0X} >>>>')
     return types.AaObjectHeader(
         base_gobjectid=base_gobjectid,
         is_template=is_template,
@@ -75,47 +72,77 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
         galaxy_name=galaxy_name
     )
 
-def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
-    print('>>>> START CONTENT >>>>')
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    main_section_id = primitives._seek_int(input=input, length=16)
-    template_name = primitives._seek_string(input=input)
+def _get_attribute_fullname(section_name: str, attribute_name: str) -> str:
+    if (attribute_name is not None) and (section_name is not None):
+        if (len(section_name) > 0):
+            return f'{section_name}.{attribute_name}'
+    return attribute_name
+
+def _get_primitive_name(section_name: str, extension_name: str) -> str:
+    # Typically this is <Section>_<Extension>.
+    # But some builtins don't show up with a name... is it UserDefined or maybe always the name of the codebase?
+    if (section_name is not None) and (extension_name is not None):
+        if (len(section_name) > 0):
+            return f'{section_name}_{extension_name}'
+    return ''
+
+def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
+    if PRINT_DEBUG_INFO: print(f'>>>> START EXTENSION - OFFSET {input.offset:0X} >>>>')
+    extension_type = primitives._seek_int(input=input)
+    instance_name = primitives._seek_string(input=input)
+    if PRINT_DEBUG_INFO: print(f'>>>>>>>> NAME {instance_name}')
     primitives._seek_forward(input=input, length=596)
-    sections = []
-
-    # User Defined Attributes ???
-    header = primitives._seek_bytes(input=input, length=16)
-    count = primitives._seek_int(input=input)
+    primitives._seek_forward(input=input, length=20) # header?
+    extension_name = primitives._seek_string(input=input)
+    primitive_name = _get_primitive_name(section_name=instance_name, extension_name=extension_name)
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=20) # header?
+    parent_name = primitives._seek_string(input=input) # this object or parent inherited from
+    primitives._seek_forward(input=input, length=596)
+    primitives._seek_forward(input=input, length=16) # header?
+    attr_count = primitives._seek_int(input=input)
     attrs = []
-    if count > 0:
-        for i in range(count):
-            attrs.append(attributes.get_attr_type1(input=input))
+    if attr_count > 0:
+        for i in range(attr_count):
+            attr = attributes.get_attr_type1(input=input)
+            attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
+            attr.primitive_name = primitive_name
+            attrs.append(attr)
     primitives._seek_end_section(input=input)
-    sections.append(types.AaObjectAttributeSection(
-        header=header,
-        count=count,
-        attributes=attrs
-    ))
 
-    # Then there seem to be four NoneType objects
-    for i in range(4): primitives._seek_object_value(input=input)
+    # Message queues for this extension?
+    # 1 - Object errors
+    # 2 - Symbol warnings
+    # 3 - Object warnings
+    # 4 - ???
+    messages = []
+    for i in range(4):
+        messages.append(primitives._seek_object_value(input=input))
 
-    # Built-in attributes ???
-    header = None
-    count = primitives._seek_int(input=input)
-    attrs = []
-    if count > 0:
-        for i in range(count):
-            attrs.append(attributes.get_attr_type2(input=input))
-    sections.append(types.AaObjectAttributeSection(
-        header=header,
-        count=count,
-        attributes=attrs
-    ))
+    attr_count = primitives._seek_int(input=input)
+    if attr_count > 0:
+        for i in range(attr_count):
+            attr = attributes.get_attr_type2(input=input)
+            attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
+            attr.primitive_name = primitive_name
+            attrs.append(attr)
 
+    #print(f'Instance Name: {instance_name}, Extension Type: {extension_type}, Extension Name: {extension_name}, Type: {enums.AaExtension(extension_type).name}')
+    if PRINT_DEBUG_INFO: print(f'>>>> END EXTENSION - OFFSET {input.offset:0X} >>>>')
+    return types.AaObjectExtension(
+        extension_type=enums.AaExtension(extension_type),
+        instance_name=instance_name,
+        extension_name=extension_name,
+        primitive_name=primitive_name,
+        parent_name=parent_name,
+        attributes=attrs,
+        messages=messages
+    )
+
+def _get_content(input: types.AaBinStream) -> types.AaObject:
     exts = []
     while primitives._lookahead_extension(input=input):
-        exts.append(extensions.get_extension(input=input))
+        exts.append(_get_extension(input=input))
 
     # Don't yet know how to tell if this will be present.
     # Only templates?
@@ -133,11 +160,47 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
     print('>>>> END CONTENT >>>>')
     '''
 
-    return types.AaObjectContent(
-        main_section_id=main_section_id,
-        template_name=template_name,
-        attr_sections=sections,
+    return types.AaObject(
         extensions=exts,
+        codebase=None
+    )
+
+def deserialize_aaobject(input: str| bytes) -> types.AaObject:
+    # Read in object from memory or from file.
+    #
+    # On disk this should be a *.txt file extracted
+    # from an *.aapkg file.
+    data: bytes
+    if isinstance(input, (str, os.PathLike)):
+        print(input)
+        try:
+            with open(input, 'rb') as file:
+                data = file.read()
+        except:
+            pass
+    elif isinstance(input, bytes):
+        data = bytes(input)
+    else:
+        raise TypeError('Input must be a file path (str/PathLike) or bytes.')
+
+    # Use this binary stream to aid with decoding
+    # so that the data can be parsed through
+    obj = types.AaBinStream(
+        data=data,
+        offset=0
+    )
+
+    header = _get_header(input=obj)
+    extension_count = primitives._seek_int(input=obj)
+    extensions = []
+    for i in range(extension_count):
+        extensions.append(_get_extension(input=obj))
+
+    return types.AaObject(
+        size=len(obj.data),
+        offset=obj.offset,
+        header=header,
+        extensions=extensions,
         codebase=None
     )
 
@@ -148,29 +211,4 @@ def explode_aaobject(
     # Create output folder if it doesn't exist yet
     if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
 
-    aaobject_bytes: bytes
-
-    if isinstance(input, (str, os.PathLike)):
-        print(input)
-        try:
-            with open(input, 'rb') as file:
-                aaobject_bytes = file.read()
-        except:
-            pass
-    elif isinstance(input, bytes):
-        aaobject_bytes = bytes(input)
-    else:
-        raise TypeError('Input must be a file path (str/PathLike) or bytes.')
-    
-    aaobj = types.AaBinStream(
-        data=aaobject_bytes,
-        offset=0
-    )
-    header = _get_header(input=aaobj)
-    content = _get_content(input=aaobj)
-    return types.AaObject(
-        size=len(aaobj.data),
-        offset=aaobj.offset,
-        header=header,
-        content=content
-    )
+    return deserialize_aaobject(input)

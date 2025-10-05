@@ -27,6 +27,10 @@ def _lookahead_bytes(input: types.AaBinStream, length: int) -> bytes:
     value = input.data[input.offset:input.offset + length]
     return value
 
+def _lookahead_bool(input: types.AaBinStream) -> bool:
+    value = bool(int.from_bytes(_lookahead_bytes(input=input, length=1), 'little'))
+    return value
+
 def _lookahead_int(input: types.AaBinStream, length: int = 4) -> int:
     value = int.from_bytes(_lookahead_bytes(input=input, length=length), 'little')
     return value
@@ -68,6 +72,10 @@ def _seek_binstream(input: types.AaBinStream, length: int = 4) -> types.AaBinStr
         data=value,
         offset=0
     )
+
+def _seek_bool(input: types.AaBinStream) -> bool:
+    value = bool(_seek_int(input=input, length=1))
+    return value
 
 def _seek_float(input: types.AaBinStream) -> float:
     length = 4
