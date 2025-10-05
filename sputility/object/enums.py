@@ -35,6 +35,7 @@ class AaExtension(IntEnum):
     UserDefined = 586
     Script = 612
     Input = 615
+    Output = 616
     Alarm = 617
     History = 618
     InputOutput1 = 619
