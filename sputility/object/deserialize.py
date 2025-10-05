@@ -118,23 +118,15 @@ def _get_content(input: types.AaBinStream) -> types.AaObjectContent:
         attributes=attrs
     ))
 
-
+    # Typical order?
+    ################
+    # UserDefined
+    # InputExtension
+    # ScriptExtension
+    # HistoryExtension
     exts = []
-    # UserDefined sections
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_USERDEFINEDEXTENSION):
-        exts.append(extensions.get_section_extension(input=input))
-
-    # InputExtension sections
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_INPUTEXTENSION):
-        exts.append(extensions.get_section_extension(input=input))
-
-    # ScriptExtension sections
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_SCRIPTEXTENSION):
-        exts.append(extensions.get_section_extension(input=input))
-
-    # HistoryExtension sections
-    while primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_SECTION_HISTORYEXTENSION):
-        exts.append(extensions.get_section_extension(input=input))
+    while primitives._lookahead_multipattern(input=input, patterns=primitives.PATTERN_EXTENSIONS):
+        exts.append(extensions.get_extension(input=input))
 
     # Don't yet know how to tell if this will be present.
     # Only templates?

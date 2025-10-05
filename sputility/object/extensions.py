@@ -19,7 +19,7 @@ def _get_primitive_name(section_name: str, extension_name: str) -> str:
             return f'{section_name}_{extension_name}'
     return ''
 
-def get_section_extension(input: types.AaBinStream) -> types.AaObjectExtensionSection:
+def get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     print('>>>> START EXTENSION >>>>')
     print(f'>>>>>>>> OFFSET {input.offset:0X}')
     section_type = primitives._seek_int(input=input)
@@ -63,7 +63,7 @@ def get_section_extension(input: types.AaBinStream) -> types.AaObjectExtensionSe
     print(f'>>>>>>>> OFFSET {input.offset:0X}')
     print('>>>> END EXTENSION >>>>')
     
-    return types.AaObjectExtensionSection(
+    return types.AaObjectExtension(
         section_type=enums.AaExtension(section_type),
         section_name=section_name,
         extension_name=extension_name,

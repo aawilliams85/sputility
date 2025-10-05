@@ -67,7 +67,7 @@ class AaObjectAttributeSection:
     attributes: list[AaObjectAttribute]
 
 @dataclass
-class AaObjectExtensionSection:
+class AaObjectExtension:
     section_type: enums.AaExtension
     section_name: str
     extension_name: str
@@ -80,7 +80,7 @@ class AaObjectContent:
     main_section_id: int
     template_name: str
     attr_sections: list[AaObjectAttributeSection]
-    extensions: list[AaObjectExtensionSection]
+    extensions: list[AaObjectExtension]
     codebase: str           # <Obj>.CodeBase
 
 @dataclass

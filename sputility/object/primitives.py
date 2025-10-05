@@ -6,10 +6,13 @@ from . import enums
 from . import types
 
 PATTERN_OBJECT_VALUE = b'\xB1\x55\xD9\x51\x86\xB0\xD2\x11\xBF\xB1\x00\x10\x4B\x5F\x96\xA7'
-PATTERN_SECTION_HISTORYEXTENSION = b'\x6A\x02\x00\x00'
-PATTERN_SECTION_INPUTEXTENSION = b'\x67\x02\x00\x00'
-PATTERN_SECTION_SCRIPTEXTENSION = b'\x64\x02\x00\x00'
-PATTERN_SECTION_USERDEFINEDEXTENSION = b'\x4A\x02\x00\x00'
+
+PATTERN_EXTENSION_HISTORY = b'\x6A\x02\x00\x00'
+PATTERN_EXTENSION_INPUT = b'\x67\x02\x00\x00'
+PATTERN_EXTENSION_SCRIPT = b'\x64\x02\x00\x00'
+PATTERN_EXTENSION_USERDEFINED = b'\x4A\x02\x00\x00'
+PATTERN_EXTENSIONS = [PATTERN_EXTENSION_HISTORY, PATTERN_EXTENSION_INPUT, PATTERN_EXTENSION_SCRIPT, PATTERN_EXTENSION_USERDEFINED]
+
 PATTERN_TEMPLATE_VALUE = b'\x00\x00\x00\x00'
 PATTERN_END = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 PATTERN_END_OF_FILE = b'\x00\x00\x00\x00'
@@ -29,6 +32,11 @@ def _ticks_to_timedelta(input: int) -> timedelta:
 def _lookahead_pattern(input: types.AaBinStream, pattern: bytes) -> bool:
     actual = input.data[input.offset:input.offset + len(pattern)]
     return (actual == pattern)
+
+def _lookahead_multipattern(input: types.AaBinStream, patterns: list[bytes]) -> bool:
+    for x in patterns:
+        if _lookahead_pattern(input=input, pattern=x): return True
+    return False
 
 def _seek_forward(input: types.AaBinStream, length: int):
     input.offset += length
