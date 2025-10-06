@@ -219,4 +219,17 @@ def explode_aaobject(
         with open(ext_file, 'w') as f:
             f.write(json.dumps(asdict(ext), indent=4, default=str))
 
+        # Special handling for Script extensions to dump
+        # body of script to a more immediately useful place.
+        #
+        # Maybe the concept should be to dump all of the raw
+        # extensions to one place and useful formatted info
+        # to another?
+        if ext.extension_type == enums.AaExtension.Script.value:
+            for attr in ext.attributes:
+                if (attr.id == 100):
+                    script_file = os.path.join(ext_path, f'{ext.instance_name}.txt')
+                    with open(script_file, 'w') as f:
+                        f.write(attr.value.value)
+
     return obj
