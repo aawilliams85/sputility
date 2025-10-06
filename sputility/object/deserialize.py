@@ -72,7 +72,8 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
         area_name=area_name,
         derived_from=derived_from,
         based_on=based_on,
-        galaxy_name=galaxy_name
+        galaxy_name=galaxy_name,
+        code_base=None
     )
 
 def _get_attribute_fullname(section_name: str, attribute_name: str) -> str:
@@ -142,32 +143,6 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
         messages=messages
     )
 
-def _get_content(input: types.AaBinStream) -> types.AaObject:
-    exts = []
-    while primitives._lookahead_extension(input=input):
-        exts.append(_get_extension(input=input))
-
-    # Don't yet know how to tell if this will be present.
-    # Only templates?
-    '''
-    # GUID sections???
-    guid1 = primitives._seek_bytes(input=input, length=512)
-    guid2 = primitives._seek_bytes(input=input, length=512)
-
-    # Codebase ???
-    primitives._seek_forward(input=input, length=36)
-    codebase = primitives._seek_string(input=input)
-
-    # Where did we leave off with the source file that hasn't been decoded yet
-    print(f'>>>>>>>> OFFSET {input.offset:0X}')
-    print('>>>> END CONTENT >>>>')
-    '''
-
-    return types.AaObject(
-        extensions=exts,
-        codebase=None
-    )
-
 def deserialize_aaobject(input: str| bytes) -> types.AaObject:
     # Read in object from memory or from file.
     #
@@ -192,18 +167,32 @@ def deserialize_aaobject(input: str| bytes) -> types.AaObject:
         offset=0
     )
 
+    # Deserialize content
     header = _get_header(input=obj)
     extension_count = primitives._seek_int(input=obj)
     extensions = []
     for i in range(extension_count):
         extensions.append(_get_extension(input=obj))
 
+    # After all extensions are over - templates have
+    # more content that is mostly not reviewed yet.
+    if header.is_template:
+        primitives._seek_forward(input=obj, length=1)
+
+        # GUID sections???
+        guid1 = primitives._seek_string(input=obj, length=512)
+        guid2 = primitives._seek_string(input=obj, length=512)
+
+        # Codebase ???
+        primitives._seek_forward(input=obj, length=36)
+        header.code_base = primitives._seek_string(input=obj)
+
+    # Return structures object
     return types.AaObject(
         size=len(obj.data),
         offset=obj.offset,
         header=header,
-        extensions=extensions,
-        codebase=None
+        extensions=extensions
     )
 
 def explode_aaobject(
@@ -225,9 +214,8 @@ def explode_aaobject(
     # Object extensions
     for ext in obj.extensions:
         ext_path = os.path.join(object_path, 'extensions', enums.AaExtension(ext.extension_type).name)
-        os.makedirs(ext_path, exist_ok=True)
-
         ext_file = os.path.join(ext_path, f'{ext.primitive_name}.json')
+        os.makedirs(ext_path, exist_ok=True)
         with open(ext_file, 'w') as f:
             f.write(json.dumps(asdict(ext), indent=4, default=str))
 

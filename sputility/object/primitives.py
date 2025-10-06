@@ -94,19 +94,19 @@ def _seek_int(input: types.AaBinStream, length: int = 4) -> int:
     input.offset += length
     return value
 
-def _seek_string(input: types.AaBinStream, length: int = 64) -> str:
-    value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    input.offset += length
+def _seek_string(input: types.AaBinStream, length: int = 64, decode: str = 'utf-16le') -> str:
+    data = _seek_bytes(input=input, length=length)
+    value = data.decode(decode).rstrip('\x00')
     return value
 
-def _seek_string_var_len(input: types.AaBinStream, length: int = 4, mult: int = 1) -> str:
+def _seek_string_var_len(input: types.AaBinStream, length: int = 4, mult: int = 1, decode: str = 'utf-16le') -> str:
     # Some variable-length string fields start with 4 bytes to specify the length in bytes.
     # Other use 2 bytes to specify the length in characters.  For the latter specify length=2, mult=2.
     str_len = int.from_bytes(input.data[input.offset: input.offset + length], 'little')
     input.offset += length
     length = str_len * mult
-    value = input.data[input.offset: input.offset + length].decode(encoding='utf-16-le').rstrip('\x00')
-    input.offset += length
+    data = _seek_bytes(input=input, length=length)
+    value = data.decode(decode).rstrip('\x00')
     return value
 
 def _seek_string_value_section(input: types.AaBinStream) -> str:
@@ -255,6 +255,9 @@ def _seek_array_timedelta(input: types.AaBinStream) -> list[datetime]:
     return value
 
 def _seek_array_reference(input: types.AaBinStream) -> list[types.AaReference]:
+    warn(f'ArrayReference not decoded yet, offset: {input.offset:0X}.')
+    #print(f'RefArray offset {input.offset:0X}')
+    #raise Exception('End early')
     _seek_forward(input=input, length=4)
     array_length = _seek_int(input=input, length=2)
     _seek_forward(input=input, length=4)

@@ -25,6 +25,7 @@ class AaObjectHeader:
     derived_from: str
     based_on: str           # <Obj>._BasedOn
     galaxy_name: str
+    code_base: str          # <Obj>.CodeBase
 
 @dataclass
 class AaReference:
@@ -83,4 +84,3 @@ class AaObject:
     offset: int
     header: AaObjectHeader
     extensions: list[AaObjectExtension]
-    codebase: str           # <Obj>.CodeBase
