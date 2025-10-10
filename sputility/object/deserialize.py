@@ -8,7 +8,7 @@ from . import enums
 from . import primitives
 from . import types
 
-PRINT_DEBUG_INFO = False
+PRINT_DEBUG_INFO = True
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     if PRINT_DEBUG_INFO: print(f'>>>> START HEADER - OFFSET {input.offset:0X} >>>>')
@@ -48,6 +48,11 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     based_on = primitives._seek_string(input=input)
     primitives._seek_forward(input=input, length=528)
     galaxy_name = primitives._seek_string_var_len(input=input)
+
+    # Some versions have a NoneType block here
+    if (primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE)):
+        primitives._seek_object_value(input=input)
+        primitives._seek_end_section(input=input)
 
     # Trying to figure out whether this first
     # byte being inserted means it is a template.
@@ -92,9 +97,9 @@ def _get_primitive_name(section_name: str, extension_name: str) -> str:
 
 def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     if PRINT_DEBUG_INFO: print(f'>>>> START EXTENSION - OFFSET {input.offset:0X} >>>>')
-    extension_type = primitives._seek_int(input=input)
+    instance_id = primitives._seek_int(input=input)
     instance_name = primitives._seek_string(input=input)
-    if PRINT_DEBUG_INFO: print(f'>>>>>>>> NAME {instance_name}')
+    if PRINT_DEBUG_INFO: print(f'>>>>>>>> INSTANCE ID: {instance_id:0X}, INSTANCE NAME: {instance_name}')
     primitives._seek_forward(input=input, length=596)
     primitives._seek_forward(input=input, length=20) # header?
     extension_name = primitives._seek_string(input=input)
@@ -108,6 +113,7 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     attrs = []
     if attr_count > 0:
         for i in range(attr_count):
+            if PRINT_DEBUG_INFO: print(f'>>>>>>>> START ATTR - OFFSET {input.offset:0X} >>>>')
             attr = attributes.get_attr_type1(input=input)
             attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
@@ -126,6 +132,7 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     attr_count = primitives._seek_int(input=input)
     if attr_count > 0:
         for i in range(attr_count):
+            if PRINT_DEBUG_INFO: print(f'>>>>>>>> START ATTR - OFFSET {input.offset:0X} >>>>')
             attr = attributes.get_attr_type2(input=input)
             attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
@@ -134,7 +141,7 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     #print(f'Instance Name: {instance_name}, Extension Type: {extension_type}, Extension Name: {extension_name}, Type: {enums.AaExtension(extension_type).name}')
     if PRINT_DEBUG_INFO: print(f'>>>> END EXTENSION - OFFSET {input.offset:0X} >>>>')
     return types.AaObjectExtension(
-        extension_type=enums.AaExtension(extension_type),
+        instance_id=instance_id,
         instance_name=instance_name,
         extension_name=extension_name,
         primitive_name=primitive_name,
@@ -213,7 +220,7 @@ def explode_aaobject(
 
     # Object extensions
     for ext in obj.extensions:
-        ext_path = os.path.join(object_path, 'extensions', enums.AaExtension(ext.extension_type).name)
+        ext_path = os.path.join(object_path, 'extensions', enums.AaExtension(ext.instance_id).name)
         ext_file = os.path.join(ext_path, f'{ext.primitive_name}.json')
         os.makedirs(ext_path, exist_ok=True)
         with open(ext_file, 'w') as f:
@@ -225,7 +232,7 @@ def explode_aaobject(
         # Maybe the concept should be to dump all of the raw
         # extensions to one place and useful formatted info
         # to another?
-        if ext.extension_type == enums.AaExtension.Script.value:
+        if ext.instance_id == enums.AaExtension.Script.value:
             for attr in ext.attributes:
                 if (attr.id == 100):
                     script_file = os.path.join(ext_path, f'{ext.instance_name}.txt')

@@ -70,7 +70,7 @@ class AaObjectAttribute:
 
 @dataclass
 class AaObjectExtension:
-    extension_type: enums.AaExtension
+    instance_id: int
     instance_name: str
     extension_name: str
     primitive_name: str
