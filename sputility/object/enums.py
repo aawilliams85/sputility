@@ -31,6 +31,7 @@ class AaDataType(IntEnum):
     ArrayDataTypeType = 74
 
 class AaExtension(IntEnum):
+    Unknown = -2
     Undefined = -1
     UserDefined = 586
     Common = 611
@@ -60,6 +61,10 @@ class AaExtension(IntEnum):
     StatisticsBoolean = 641
     BadValueAlarm = 642
     LogDataChange = 644
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.Unknown
 
 class AaLocked(IntEnum):
     Undefined = -1
