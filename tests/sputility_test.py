@@ -41,7 +41,7 @@ class sputility_tests(unittest.TestCase):
                 progress=None
             )
             print(f'Parsed {resp.offset:0X} of {resp.size:0X} bytes')
-            #pprint.pprint(resp.header)
+            pprint.pprint(resp.header)
             for section in resp.extensions:
                 #print(f'Primitive name: {section.primitive_name}, Count: {len(section.attributes)}')
                 #for attr in section.attributes:
