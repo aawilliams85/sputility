@@ -46,12 +46,20 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     derived_from = primitives._seek_string(input=input)
     primitives._seek_forward(input=input, length=596)
     based_on = primitives._seek_string(input=input)
-    primitives._seek_forward(input=input, length=528)
+    primitives._seek_forward(input=input, length=524)
+
+    # Some versions have an extra block here
+    if not(primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_END_OF_HEADER)):
+        unk01 = primitives._seek_int(input=input)
+        primitives._seek_forward(input=input, length=660)
+    else:
+        unk01 = primitives._seek_forward(input=input, length=4)
+
     galaxy_name = primitives._seek_string_var_len(input=input)
 
     # Some versions have a NoneType block here
     if (primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE)):
-        primitives._seek_object_value(input=input)
+        unk02 = primitives._seek_object_value(input=input)
         primitives._seek_end_section(input=input)
 
     # Trying to figure out whether this first
