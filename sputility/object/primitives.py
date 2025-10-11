@@ -51,6 +51,25 @@ def _lookahead_extension(input: types.AaBinStream) -> bool:
     warn(f'Unexpected extension {extension} at offset {input.offset:0X}, or end of extensions.')
     return False
 
+def _lookahead_string_var_len(input: types.AaBinStream, length: int = 4, mult: int = 1, decode: str = 'utf-16le') -> bool:
+    # Some variable-length string fields start with 4 bytes to specify the length in bytes.
+    # Other use 2 bytes to specify the length in characters.  For the latter specify length=2, mult=2.
+    str_len = _lookahead_int(input=input, length=length)
+    data_len = str_len * mult
+    total_len = length + data_len
+    #print(f'Data Length: {data_len}, Total Length: {total_len}')
+    data = _lookahead_bytes(input=input, length=total_len)
+    obj = types.AaBinStream(
+        data=data,
+        offset=0
+    )
+    value = _seek_string_var_len(input=obj).rstrip('\x00')
+    expected_len = (str_len - 2) / (2 * mult)
+    #print(f'Value: {value}, Expected Length: {expected_len}, Actual Length: {len(value)}')
+    if (len(value) < 1): return False
+    if (len(value) != expected_len): return False
+    return value
+
 def _seek_forward(input: types.AaBinStream, length: int):
     # Anywhere this is called, basically means that I don't
     # understand what a range of bytes means and want to skip

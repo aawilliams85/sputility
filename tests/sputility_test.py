@@ -40,8 +40,8 @@ class sputility_tests(unittest.TestCase):
                 output_path=LOCAL_OUTPUT_AAOBJECT_PATH,
                 progress=None
             )
-            print(f'Parsed {resp.offset:0X} of {resp.size:0X} bytes')
-            pprint.pprint(resp.header)
+            print(f'Parsed {resp.offset:0X} of {resp.size:0X} bytes, {(100.0 * resp.offset / resp.size):.1f}%')
+            #pprint.pprint(resp.header)
             for section in resp.extensions:
                 #print(f'Primitive name: {section.primitive_name}, Count: {len(section.attributes)}')
                 #for attr in section.attributes:
