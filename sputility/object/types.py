@@ -101,7 +101,6 @@ class AaScriptHeader:
     asynchronous_timeout_ms: int
     historize_state: bool
     alarm_enable: bool
-    alarm_priority: int
 
 @dataclass
 class AaScriptContent:

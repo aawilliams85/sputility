@@ -105,8 +105,10 @@ class AaScriptAttributes(IntEnum):
     ShutdownBodyText = 122
     OnScanBodyText = 123
     OffScanBodyText = 124
+    AlarmEnable = 130
     TriggerPeriod = 131
     AsynchronousExecution = 138
+    HistorizeState = 139
     AsynchronousTimeout = 140
     TriggerQualityChange = 143
 

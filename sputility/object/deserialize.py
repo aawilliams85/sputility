@@ -9,6 +9,7 @@ from . import primitives
 from . import types
 
 PRINT_DEBUG_INFO = False
+PLACEHOLDER_ATTR_REFERENCE = '---.---'
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     if PRINT_DEBUG_INFO: print(f'>>>> START HEADER - OFFSET {input.offset:0X} >>>>')
@@ -169,7 +170,9 @@ def _format_script_aliases(extension: types.AaObjectExtension) -> list[str, str]
     resp = []
     if alias_names is not None:
         for x in range(len(alias_names)):
-            resp.append(f'{alias_names[x]},{alias_references[x].refA}')
+            ref = alias_references[x].refA
+            if len(ref) < 1: ref = PLACEHOLDER_ATTR_REFERENCE
+            resp.append(f'{alias_names[x]},{ref}')
     return resp
 
 def _format_script_extension(extension: types.AaObjectExtension) -> types.AaScript:
@@ -184,6 +187,8 @@ def _format_script_extension(extension: types.AaObjectExtension) -> types.AaScri
     trigger_quality_change = extension.get_attribute(attribute_id=enums.AaScriptAttributes.TriggerQualityChange).value.value
     asynchronous_execution = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AsynchronousExecution).value.value
     asynchronous_timeout = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AsynchronousTimeout).value.value
+    historize_state = extension.get_attribute(attribute_id=enums.AaScriptAttributes.HistorizeState).value.value
+    alarm_enable = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AlarmEnable).value.value
 
     # Content
     declarations = extension.get_attribute(attribute_id=enums.AaScriptAttributes.Declarations).value.value
@@ -204,9 +209,8 @@ def _format_script_extension(extension: types.AaObjectExtension) -> types.AaScri
         trigger_deadband=trigger_deadband,
         asynchronous_execution=asynchronous_execution,
         asynchronous_timeout_ms=asynchronous_timeout,
-        historize_state=None,
-        alarm_enable=None,
-        alarm_priority=None
+        historize_state=historize_state,
+        alarm_enable=alarm_enable,
     )
     content = types.AaScriptContent(
         aliases=aliases,
