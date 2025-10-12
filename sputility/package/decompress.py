@@ -137,7 +137,7 @@ def decompress_aapkg(
                 streams.extend(decompress_cab(file=cab_zip,prefix=cab_prefix))
     return streams
     
-def archive_to_disk(
+def aapkg_to_folder(
     input_path: str,
     output_path: str
 ) -> types.AaManifest:

@@ -96,7 +96,7 @@ class AaScriptAttributes(IntEnum):
     ExecuteBodyText = 100
     AliasReferences = 102
     AliasNames = 103
-    TriggerTypes = 104
+    TriggerTypeEnum = 104
     TriggerType = 105
     ExpressionText = 106
     Deadband = 107
@@ -105,6 +105,10 @@ class AaScriptAttributes(IntEnum):
     ShutdownBodyText = 122
     OnScanBodyText = 123
     OffScanBodyText = 124
+    TriggerPeriod = 131
+    AsynchronousExecution = 138
+    AsynchronousTimeout = 140
+    TriggerQualityChange = 143
 
 class AaScriptExecutionType(StrEnum):
     Execute = auto()

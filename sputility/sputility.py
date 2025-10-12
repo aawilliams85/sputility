@@ -18,10 +18,10 @@ class SPUtility(object):
     ):
         if not(os.path.isfile(input_path)): raise FileNotFoundError(f'Input file specified ({input_path}) does not exist.')
         if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
-        result = decompress.archive_to_disk(input_path=input_path, output_path=output_path)
+        result = decompress.aapkg_to_folder(input_path=input_path, output_path=output_path)
         return result
 
-    def explode_object(
+    def aaobject_to_folder(
         self,
         input_path: str,
         output_path: str,

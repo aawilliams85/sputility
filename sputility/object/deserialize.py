@@ -173,13 +173,21 @@ def _format_script_aliases(extension: types.AaObjectExtension) -> list[str, str]
     return resp
 
 def _format_script_extension(extension: types.AaObjectExtension) -> types.AaScript:
+    # Header
     name = extension.get_attribute(attribute_id=enums.AaScriptAttributes.Name).value.value
     primitive_name = extension.get_attribute(attribute_id=enums.AaScriptAttributes.PrimitiveName).value.value
 
+    expression = extension.get_attribute(attribute_id=enums.AaScriptAttributes.ExpressionText).value.value
+    trigger_type = extension.get_attribute(attribute_id=enums.AaScriptAttributes.TriggerType).value.value.value
+    trigger_deadband = extension.get_attribute(attribute_id=enums.AaScriptAttributes.Deadband).value.value
+    trigger_period = extension.get_attribute(attribute_id=enums.AaScriptAttributes.TriggerPeriod).value.value
+    trigger_quality_change = extension.get_attribute(attribute_id=enums.AaScriptAttributes.TriggerQualityChange).value.value
+    asynchronous_execution = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AsynchronousExecution).value.value
+    asynchronous_timeout = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AsynchronousTimeout).value.value
+
+    # Content
     declarations = extension.get_attribute(attribute_id=enums.AaScriptAttributes.Declarations).value.value
     aliases = _format_script_aliases(extension=extension)
-
-    trigger_type = extension.get_attribute(attribute_id=enums.AaScriptAttributes.TriggerType).value.value
     body_text_execute = extension.get_attribute(attribute_id=enums.AaScriptAttributes.ExecuteBodyText).value.value
     body_text_onscan = extension.get_attribute(attribute_id=enums.AaScriptAttributes.OnScanBodyText).value.value
     body_text_offscan = extension.get_attribute(attribute_id=enums.AaScriptAttributes.OffScanBodyText).value.value
@@ -189,13 +197,13 @@ def _format_script_extension(extension: types.AaObjectExtension) -> types.AaScri
     header = types.AaScriptHeader(
         name=name,
         primitive_name=primitive_name,
-        expression=None,
+        expression=expression,
         trigger_type=trigger_type,
-        trigger_period=None,
-        trigger_quality_changes=None,
-        trigger_deadband=None,
-        asynchronous_execution=None,
-        asynchronous_timeout_ms=None,
+        trigger_period=trigger_period,
+        trigger_quality_changes=trigger_quality_change,
+        trigger_deadband=trigger_deadband,
+        asynchronous_execution=asynchronous_execution,
+        asynchronous_timeout_ms=asynchronous_timeout,
         historize_state=None,
         alarm_enable=None,
         alarm_priority=None
