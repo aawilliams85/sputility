@@ -45,11 +45,24 @@ def _lookahead_multipattern(input: types.AaBinStream, patterns: list[bytes]) -> 
         if _lookahead_pattern(input=input, pattern=x): return True
     return False
 
-def _lookahead_extension(input: types.AaBinStream) -> bool:
-    extension = _lookahead_int(input=input)
-    if extension in enums.AaExtension: return True
-    warn(f'Unexpected extension {extension} at offset {input.offset:0X}, or end of extensions.')
-    return False
+def _lookahead_string_var_len(input: types.AaBinStream, length: int = 4, mult: int = 1, decode: str = 'utf-16le') -> bool:
+    # Some variable-length string fields start with 4 bytes to specify the length in bytes.
+    # Other use 2 bytes to specify the length in characters.  For the latter specify length=2, mult=2.
+    str_len = _lookahead_int(input=input, length=length)
+    data_len = str_len * mult
+    total_len = length + data_len
+    #print(f'Data Length: {data_len}, Total Length: {total_len}')
+    data = _lookahead_bytes(input=input, length=total_len)
+    obj = types.AaBinStream(
+        data=data,
+        offset=0
+    )
+    value = _seek_string_var_len(input=obj).rstrip('\x00')
+    expected_len = (str_len - 2) / (2 * mult)
+    #print(f'Value: {value}, Expected Length: {expected_len}, Actual Length: {len(value)}')
+    if (len(value) < 1): return False
+    if (len(value) != expected_len): return False
+    return value
 
 def _seek_forward(input: types.AaBinStream, length: int):
     # Anywhere this is called, basically means that I don't
@@ -132,7 +145,6 @@ def _seek_reference_section(input: types.AaBinStream) -> types.AaReference:
     _seek_forward(input=obj, length=20)
     warn(f'ReferenceType not fully decoded yet, offset: {input.offset:0X}.')
     return types.AaReference(
-        unk01=unk01,
         refA=refa_text,
         refB=refb_text
     )
@@ -257,15 +269,34 @@ def _seek_array_timedelta(input: types.AaBinStream) -> list[datetime]:
 
 def _seek_array_reference(input: types.AaBinStream) -> list[types.AaReference]:
     warn(f'ArrayReference not decoded yet, offset: {input.offset:0X}.')
-    #print(f'RefArray offset {input.offset:0X}')
-    #raise Exception('End early')
     _seek_forward(input=input, length=4)
     array_length = _seek_int(input=input, length=2)
     _seek_forward(input=input, length=4)
     value = []
     for i in range(array_length):
         obj = _seek_binstream(input=input)
-        value.append(obj)
+
+        # This length is notably strange because the upper two bytes
+        # seem to be unrelated.  So it is 2 bytes for length, 2 bytes
+        # unknown, then data.  Need to test if this is a general rule
+        # throughout or just these sections.
+        unk00 = _seek_bytes(input=obj, length=5)
+        refa_len = _seek_int(input=obj, length=2)
+        refa_unk01 = _seek_int(input=obj, length=2)
+        refa_text = _seek_string(input=obj, length=refa_len)
+        refa_unk02 = _seek_int(input=obj, length=4)
+        refa_text2 = _seek_string(input=obj, length=refa_unk02)
+        refa_unk03 = _seek_int(input=obj, length=4)
+
+        refb_len = _seek_int(input=obj, length=2)
+        unk04 = _seek_int(input=obj, length=2)
+        refb_text = _seek_string(input=obj, length=refb_len)
+        _seek_forward(input=obj, length=8)
+        _seek_forward(input=obj, length=12)
+        value.append(types.AaReference(
+            refA=refa_text,
+            refB=refb_text
+        ))
 
     return value
 
