@@ -29,7 +29,10 @@ class SPUtility(object):
         progress: Optional[Callable[[str, str, int, int], None]] = None, 
     ):
         if not(os.path.isfile(input_path)): raise FileNotFoundError(f'Input file specified ({input_path}) does not exist.')
-        if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
+
+        aapkg_name = os.path.splitext(os.path.basename(input_path))[0]
+        aapkg_path = os.path.join(output_path, aapkg_name)
+        if not(os.path.exists(aapkg_path)): os.makedirs(aapkg_path, exist_ok=True)
         (manifest, streams) = decompress.aapkg_to_memory(input_path=input_path)
 
         def _get_stream(name: str, streams: list[types.AaArchive]) -> types.AaArchive:
@@ -43,12 +46,12 @@ class SPUtility(object):
 
         def _recurse(template: types.AaManifestTemplate):
             print(f'Tag Name: {template.tag_name}, Protected: {template.is_protected}, File Name: {template.file_name}')
-            result = deserialize.aaobject_to_folder(_get_stream(_get_stream_filename(template.tag_name, template.file_name, template.is_protected), streams).data, output_path=output_path)
+            result = deserialize.aaobject_to_folder(_get_stream(_get_stream_filename(template.tag_name, template.file_name, template.is_protected), streams).data, output_path=aapkg_path)
             for child in template.derived_templates:
                 _recurse(child)
 
             for child in template.derived_instances:
-                result = deserialize.aaobject_to_folder(_get_stream(child.file_name, streams).data, output_path=output_path)
+                result = deserialize.aaobject_to_folder(_get_stream(child.file_name, streams).data, output_path=aapkg_path)
 
         for template in manifest.templates:
             _recurse(template)
