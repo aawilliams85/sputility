@@ -21,6 +21,7 @@ The public classes in sputility provide the following capabilities:
 To install from pip, run the following command:
 ```console
 pip install sputility
+```
 
 To upgrade to the latest release:
 ```console
