@@ -13,19 +13,31 @@ LOCAL_OUTPUT_PATH = os.path.join(LOCAL_BASE_PATH, 'output_files')
 LOCAL_INPUT_AAOBJECT_PATH = os.path.join(LOCAL_INPUT_PATH, 'aaobject')
 LOCAL_INPUT_AAPKG_PATH = os.path.join(LOCAL_INPUT_PATH, 'aapkg')
 LOCAL_OUTPUT_AAOBJECT_PATH = os.path.join(LOCAL_OUTPUT_PATH, 'aaobject')
-LOCAL_OUTPUT_AAPKG_PATH = os.path.join(LOCAL_OUTPUT_PATH, 'aapkg')
+LOCAL_OUTPUT_AAPKG_DECOOMPRESSED_PATH = os.path.join(LOCAL_OUTPUT_PATH, 'aapkg_decompressed')
+LOCAL_OUTPUT_AAPKG_DESERIALIZED_PATH = os.path.join(LOCAL_OUTPUT_PATH, 'aapkg_deserialized')
 
 class sputility_tests(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_aapkg_to_folder(self):
+    def test_aapkg_decompress(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
             spu = SPUtility()
             resp = spu.decompress_package(
                 input_path=file,
-                output_path=LOCAL_OUTPUT_AAPKG_PATH,
+                output_path=LOCAL_OUTPUT_AAPKG_DECOOMPRESSED_PATH,
+                progress=None
+            )
+            pprint.pprint(resp)
+
+    def test_aapkg_to_folder(self):
+        print('')
+        for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
+            spu = SPUtility()
+            resp = spu.aapkg_to_folder(
+                input_path=file,
+                output_path=LOCAL_OUTPUT_AAPKG_DESERIALIZED_PATH,
                 progress=None
             )
             pprint.pprint(resp)

@@ -20,6 +20,20 @@ def _create_subfolders(output_path: str, archive_paths: list[str]):
         os.makedirs(current_path, exist_ok=True)
     return os.path.join(current_path, archive_paths[-1])
 
+def _get_manifest_instances(element: ET.Element) -> types.AaManifestInstance:
+    return types.AaManifestInstance(
+        tag_name=element.attrib.get('tag_name', ''),
+        gobjectid=int(element.attrib.get('gobjectid', '0')),
+        file_name=element.attrib.get('file_name', ''),
+        config_version=int(element.attrib.get('config_version', '0')),
+        codebase=element.attrib.get('codebase', ''),
+        security_group=element.attrib.get('security_group', ''),
+        host_name=element.attrib.get('host_name', ''),
+        area_name=element.attrib.get('area_name', ''),
+        cont_name=element.attrib.get('cont_name', ''),
+        toolset_name=element.attrib.get('toolset_name', '')
+    )
+
 def _get_manifest_templates(element: ET.Element) -> types.AaManifestTemplate:
     # Extract attributes
     attrs = {
@@ -45,6 +59,10 @@ def _get_manifest_templates(element: ET.Element) -> types.AaManifestTemplate:
 
     # Placeholder for derived_instances
     derived_instances = []
+    di_element = element.find('derived_instances')
+    if di_element is not None:
+        for inst in di_element.findall('instance'):
+            derived_instances.append(_get_manifest_instances(inst))
 
     return types.AaManifestTemplate(**attrs, derived_templates=derived_templates, derived_instances=derived_instances)
 
@@ -137,6 +155,16 @@ def decompress_aapkg(
                 streams.extend(decompress_cab(file=cab_zip,prefix=cab_prefix))
     return streams
     
+def aapkg_to_memory(
+    input_path: str,
+) -> tuple[types.AaManifest, list[types.AaArchive]]:
+    # Directly dump archive with no application-specific
+    # handling.
+    with zipfile.ZipFile(input_path, 'r') as archive:
+        streams = decompress_aapkg(file=archive)
+        manifest = _get_manifest(streams)
+        return (manifest, streams)
+
 def aapkg_to_folder(
     input_path: str,
     output_path: str
