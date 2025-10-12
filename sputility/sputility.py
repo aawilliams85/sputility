@@ -22,7 +22,7 @@ class SPUtility(object):
         result = decompress.aapkg_to_folder(input_path=input_path, output_path=output_path)
         return result
 
-    def aapkg_to_folder(
+    def deserialize_package(
         self,
         input_path: str,
         output_path: str,
@@ -45,7 +45,6 @@ class SPUtility(object):
                return file_name
 
         def _recurse(template: types.AaManifestTemplate):
-            print(f'Tag Name: {template.tag_name}, Protected: {template.is_protected}, File Name: {template.file_name}')
             result = deserialize.aaobject_to_folder(_get_stream(_get_stream_filename(template.tag_name, template.file_name, template.is_protected), streams).data, output_path=aapkg_path)
             for child in template.derived_templates:
                 _recurse(child)
@@ -56,7 +55,7 @@ class SPUtility(object):
         for template in manifest.templates:
             _recurse(template)
 
-    def aaobject_to_folder(
+    def deserialize_object(
         self,
         input_path: str,
         output_path: str,

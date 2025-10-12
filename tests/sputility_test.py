@@ -20,7 +20,7 @@ class sputility_tests(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_aapkg_decompress(self):
+    def test_decompress_package(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
             spu = SPUtility()
@@ -31,23 +31,22 @@ class sputility_tests(unittest.TestCase):
             )
             pprint.pprint(resp)
 
-    def test_aapkg_to_folder(self):
+    def test_deserialize_package(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
             spu = SPUtility()
-            resp = spu.aapkg_to_folder(
+            resp = spu.deserialize_package(
                 input_path=file,
                 output_path=LOCAL_OUTPUT_AAPKG_DESERIALIZED_PATH,
                 progress=None
             )
-            pprint.pprint(resp)
 
-    def test_aaobject_to_folder(self):
+    def test_deserialize_object(self):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAOBJECT_PATH, '*.txt')):
             spu = SPUtility()
             print(file)
-            resp = spu.aaobject_to_folder(
+            resp = spu.deserialize_object(
                 input_path=file,
                 output_path=LOCAL_OUTPUT_AAOBJECT_PATH,
                 progress=None
