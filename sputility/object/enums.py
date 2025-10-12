@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, StrEnum, auto
 
 class AaDataType(IntEnum):
     Undefined = -1
@@ -30,6 +30,7 @@ class AaDataType(IntEnum):
     ArrayStatusType = 73
     ArrayDataTypeType = 74
 
+# These don't seem consistent between environments and might be meaningless
 class AaExtension(IntEnum):
     Unknown = -2
     Undefined = -1
@@ -66,6 +67,13 @@ class AaExtension(IntEnum):
     def _missing_(cls, value):
         return cls.Unknown
 
+class AaExtensionAttributes(IntEnum):
+    Name = 1
+    PrimitiveName = 2
+
+class AaExtensionFormatted(StrEnum):
+    ScriptExtension = auto()
+
 class AaLocked(IntEnum):
     Undefined = -1
     Unlocked = 0
@@ -81,6 +89,37 @@ class AaPermission(IntEnum):
     Tune = 4
     Configure = 5
     ViewOnly = 6
+
+class AaScriptAttributes(IntEnum):
+    Name = 1
+    PrimitiveName = 2
+    ExecuteBodyText = 100
+    AliasReferences = 102
+    AliasNames = 103
+    TriggerTypes = 104
+    TriggerType = 105
+    ExpressionText = 106
+    Deadband = 107
+    Declarations = 120
+    StartupBodyText = 121
+    ShutdownBodyText = 122
+    OnScanBodyText = 123
+    OffScanBodyText = 124
+
+class AaScriptExecutionType(StrEnum):
+    Execute = auto()
+    Startup = auto()
+    Shutdown = auto()
+    OnScan = auto()
+    OffScan = auto()
+
+class AaScriptTriggerType(StrEnum):
+    WhileTrue = auto()
+    WhileFalse = auto()
+    OnTrue = auto()
+    OnFalse = auto()
+    DataChange = auto()
+    Periodic = auto()
 
 class AaSource(IntEnum):
     Undefined = -1

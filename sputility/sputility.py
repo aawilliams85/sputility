@@ -29,5 +29,5 @@ class SPUtility(object):
     ):
         if not(os.path.isfile(input_path)): raise FileNotFoundError(f'Input file specified ({input_path}) does not exist.')
         if not(os.path.exists(output_path)): os.makedirs(output_path, exist_ok=True)
-        result = deserialize.explode_aaobject(input=input_path, output_path=output_path)
+        result = deserialize.aaobject_to_folder(input=input_path, output_path=output_path)
         return result

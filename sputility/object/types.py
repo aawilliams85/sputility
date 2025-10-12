@@ -29,7 +29,6 @@ class AaObjectHeader:
 
 @dataclass
 class AaReference:
-    unk01: int
     refA: str
     refB: str
 
@@ -55,6 +54,7 @@ class AaObjectValue:
 
 @dataclass
 class AaObjectAttribute:
+    offset: int
     id: int
     name: str
     attr_type: enums.AaDataType
@@ -78,9 +78,42 @@ class AaObjectExtension:
     attributes: list[AaObjectAttribute]
     messages: list[AaObjectValue]
 
+    def get_attribute(self, attribute_id: int):
+        return next((attr for attr in self.attributes if attr.id == attribute_id), None)
+
 @dataclass
 class AaObject:
     size: int
     offset: int
     header: AaObjectHeader
     extensions: list[AaObjectExtension]
+
+@dataclass
+class AaScriptHeader:
+    name: str
+    primitive_name: str
+    expression: str
+    trigger_type: enums.AaScriptTriggerType
+    trigger_period: timedelta
+    trigger_quality_changes: bool
+    trigger_deadband: float
+    asynchronous_execution: bool
+    asynchronous_timeout_ms: int
+    historize_state: bool
+    alarm_enable: bool
+    alarm_priority: int
+
+@dataclass
+class AaScriptContent:
+    aliases: list[str, str]
+    declarations: str
+    body_text_execute: str
+    body_text_startup: str
+    body_text_shutdown: str
+    body_text_onscan: str
+    body_text_offscan: str
+    
+@dataclass
+class AaScript:
+    header: AaScriptHeader
+    content: AaScriptContent

@@ -163,6 +163,101 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
         messages=messages
     )
 
+def _format_script_aliases(extension: types.AaObjectExtension) -> list[str, str]:
+    alias_names = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AliasNames).value.value
+    alias_references = extension.get_attribute(attribute_id=enums.AaScriptAttributes.AliasReferences).value.value
+    resp = []
+    if alias_names is not None:
+        for x in range(len(alias_names)):
+            resp.append(f'{alias_names[x]},{alias_references[x].refA}')
+    return resp
+
+def _format_script_extension(extension: types.AaObjectExtension) -> types.AaScript:
+    name = extension.get_attribute(attribute_id=enums.AaScriptAttributes.Name).value.value
+    primitive_name = extension.get_attribute(attribute_id=enums.AaScriptAttributes.PrimitiveName).value.value
+
+    declarations = extension.get_attribute(attribute_id=enums.AaScriptAttributes.Declarations).value.value
+    aliases = _format_script_aliases(extension=extension)
+
+    trigger_type = extension.get_attribute(attribute_id=enums.AaScriptAttributes.TriggerType).value.value
+    body_text_execute = extension.get_attribute(attribute_id=enums.AaScriptAttributes.ExecuteBodyText).value.value
+    body_text_onscan = extension.get_attribute(attribute_id=enums.AaScriptAttributes.OnScanBodyText).value.value
+    body_text_offscan = extension.get_attribute(attribute_id=enums.AaScriptAttributes.OffScanBodyText).value.value
+    body_text_startup = extension.get_attribute(attribute_id=enums.AaScriptAttributes.StartupBodyText).value.value
+    body_text_shutdown = extension.get_attribute(attribute_id=enums.AaScriptAttributes.ShutdownBodyText).value.value
+
+    header = types.AaScriptHeader(
+        name=name,
+        primitive_name=primitive_name,
+        expression=None,
+        trigger_type=trigger_type,
+        trigger_period=None,
+        trigger_quality_changes=None,
+        trigger_deadband=None,
+        asynchronous_execution=None,
+        asynchronous_timeout_ms=None,
+        historize_state=None,
+        alarm_enable=None,
+        alarm_priority=None
+    )
+    content = types.AaScriptContent(
+        aliases=aliases,
+        declarations=declarations,
+        body_text_execute=body_text_execute,
+        body_text_startup=body_text_startup,
+        body_text_shutdown=body_text_shutdown,
+        body_text_offscan=body_text_offscan,
+        body_text_onscan=body_text_onscan
+    )
+    return types.AaScript(
+        header=header,
+        content=content
+    )
+
+def _formatted_script_to_folder(extension: types.AaObjectExtension, output_path: str):
+    script = _format_script_extension(extension=extension)
+    ext_path = os.path.join(output_path, script.header.name)
+    os.makedirs(ext_path, exist_ok=True)
+
+    file = os.path.join(ext_path, 'header.json')
+    with open(file, 'w') as f:
+        f.write(json.dumps(asdict(script.header), indent=4, default=str))
+
+    if (len(script.content.aliases) > 0):
+        file = os.path.join(ext_path, 'aliases.txt')
+        with open(file, 'w') as f:
+            f.write("\n".join(map(str, script.content.aliases)))
+
+    if (len(script.content.declarations) > 0):
+        file = os.path.join(ext_path, 'declarations.txt')
+        with open(file, 'w') as f:
+            f.write(script.content.declarations)
+
+    if (len(script.content.body_text_execute) > 0):
+        file = os.path.join(ext_path, 'execute.txt')
+        with open(file, 'w') as f:
+            f.write(script.content.body_text_execute)
+
+    if (len(script.content.body_text_offscan) > 0):
+        file = os.path.join(ext_path, 'offscan.txt')
+        with open(file, 'w') as f:
+            f.write(script.content.body_text_offscan)
+
+    if (len(script.content.body_text_onscan) > 0):
+        file = os.path.join(ext_path, 'onscan.txt')
+        with open(file, 'w') as f:
+            f.write(script.content.body_text_onscan) 
+
+    if (len(script.content.body_text_shutdown) > 0):
+        file = os.path.join(ext_path, 'shutdown.txt')
+        with open(file, 'w') as f:
+            f.write(script.content.body_text_shutdown)
+
+    if (len(script.content.body_text_startup) > 0):
+        file = os.path.join(ext_path, 'startup.txt')
+        with open(file, 'w') as f:
+            f.write(script.content.body_text_startup)
+
 def deserialize_aaobject(input: str| bytes) -> types.AaObject:
     # Read in object from memory or from file.
     #
@@ -220,7 +315,7 @@ def deserialize_aaobject(input: str| bytes) -> types.AaObject:
         extensions=extensions
     )
 
-def explode_aaobject(
+def aaobject_to_folder(
     input: str | bytes,
     output_path: str
 ) -> types.AaObject:
@@ -236,25 +331,20 @@ def explode_aaobject(
     with open(header_path, 'w') as f:
         f.write(json.dumps(asdict(obj.header), indent=4))
 
-    # Object extensions
+    # Raw object extensions
+    raw_path = os.path.join(object_path, 'raw')
     for ext in obj.extensions:
-        ext_path = os.path.join(object_path, 'extensions', enums.AaExtension(ext.instance_id).name)
+        ext_path = os.path.join(raw_path, 'extensions', str(ext.instance_id))
         ext_file = os.path.join(ext_path, f'{ext.primitive_name}.json')
         os.makedirs(ext_path, exist_ok=True)
         with open(ext_file, 'w') as f:
             f.write(json.dumps(asdict(ext), indent=4, default=str))
 
-        # Special handling for Script extensions to dump
-        # body of script to a more immediately useful place.
-        #
-        # Maybe the concept should be to dump all of the raw
-        # extensions to one place and useful formatted info
-        # to another?
-        if ext.instance_id == enums.AaExtension.Script.value:
-            for attr in ext.attributes:
-                if (attr.id == 100):
-                    script_file = os.path.join(ext_path, f'{ext.instance_name}.txt')
-                    with open(script_file, 'w') as f:
-                        f.write(attr.value.value)
+    # Formatted object extensions
+    formatted_path = os.path.join(object_path, 'formatted')
+    script_path = os.path.join(formatted_path, 'scripts')
+    for extension in obj.extensions:
+        if (extension.extension_name.casefold() == enums.AaExtensionFormatted.ScriptExtension.casefold()):
+            _formatted_script_to_folder(extension=extension, output_path=script_path)
 
     return obj
