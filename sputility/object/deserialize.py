@@ -49,7 +49,10 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     primitives._seek_forward(input=input, length=528)
 
     # Some versions have an extra block here
+    # Still looking for a better way to check the alignment.
+    extra_header_block = False
     if not(primitives._lookahead_string_var_len(input=input)):
+        extra_header_block = True
         primitives._seek_forward(input=input, length=660)
     galaxy_name = primitives._seek_string_var_len(input=input)
 
@@ -57,6 +60,10 @@ def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
     if (primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_OBJECT_VALUE)):
         unk02 = primitives._seek_object_value(input=input)
         primitives._seek_end_section(input=input)
+
+    # Some versions have extra bytes here.
+    if extra_header_block:
+        primitives._seek_bytes(input=input, length=5)
 
     # Trying to figure out whether this first
     # byte being inserted means it is a template.
@@ -114,10 +121,11 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     primitives._seek_forward(input=input, length=596)
     primitives._seek_forward(input=input, length=16) # header?
     attr_count = primitives._seek_int(input=input)
+    if PRINT_DEBUG_INFO: print(f'>>>>>>>> EXPECTING {attr_count} ATTR1s >>>>')
     attrs = []
     if attr_count > 0:
         for i in range(attr_count):
-            if PRINT_DEBUG_INFO: print(f'>>>>>>>> START ATTR - OFFSET {input.offset:0X} >>>>')
+            if PRINT_DEBUG_INFO: print(f'>>>>>>>> START ATTR1 - OFFSET {input.offset:0X} >>>>')
             attr = attributes.get_attr_type1(input=input)
             attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
@@ -134,9 +142,10 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
         messages.append(primitives._seek_object_value(input=input))
 
     attr_count = primitives._seek_int(input=input)
+    if PRINT_DEBUG_INFO: print(f'>>>>>>>> EXPECTING {attr_count} ATTR2s >>>>')
     if attr_count > 0:
         for i in range(attr_count):
-            if PRINT_DEBUG_INFO: print(f'>>>>>>>> START ATTR - OFFSET {input.offset:0X} >>>>')
+            if PRINT_DEBUG_INFO: print(f'>>>>>>>> START ATTR2 - OFFSET {input.offset:0X} >>>>')
             attr = attributes.get_attr_type2(input=input)
             attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
@@ -181,6 +190,7 @@ def deserialize_aaobject(input: str| bytes) -> types.AaObject:
     # Deserialize content
     header = _get_header(input=obj)
     extension_count = primitives._seek_int(input=obj)
+    if PRINT_DEBUG_INFO: print(f'>>>> EXPECTING {extension_count} EXTENSIONS >>>>')
     extensions = []
     for i in range(extension_count):
         extensions.append(_get_extension(input=obj))
@@ -197,6 +207,10 @@ def deserialize_aaobject(input: str| bytes) -> types.AaObject:
         # Codebase ???
         primitives._seek_forward(input=obj, length=36)
         header.code_base = primitives._seek_string(input=obj)
+
+        # Config Version ???
+        primitives._seek_forward(input=obj, length=584)
+        config_version = primitives._seek_int(input=obj)
 
     # Return structures object
     return types.AaObject(

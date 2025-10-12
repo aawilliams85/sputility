@@ -42,7 +42,11 @@ class sputility_tests(unittest.TestCase):
             )
             print(f'Parsed {resp.offset:0X} of {resp.size:0X} bytes, {(100.0 * resp.offset / resp.size):.1f}%')
             #pprint.pprint(resp.header)
+            print(f'{len(resp.extensions)} extensions')
+            attrs = 0
             for section in resp.extensions:
+                attrs += len(section.attributes)
+                #print(f'{len(section.attributes)} attrs')
                 #print(f'Primitive name: {section.primitive_name}, Count: {len(section.attributes)}')
                 #for attr in section.attributes:
                 #    print(f'Attribute ID: {attr.id}')
@@ -50,6 +54,8 @@ class sputility_tests(unittest.TestCase):
                 #    print(attr.id)
                 #pprint.pprint(section)
                 pass
+
+            print(f'{attrs} attrs')
 
     def tearDown(self):
         pass
