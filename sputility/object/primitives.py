@@ -314,7 +314,7 @@ def _seek_object_value(input: types.AaBinStream, raise_mismatch: bool = True) ->
     # the mistake.
     header = _seek_bytes(input=input, length=16)
     if header != PATTERN_OBJECT_VALUE:
-        warn(f'Object value unexpected header: {header}')
+        warn(f'Object value unexpected header: {header} at {input.offset:0X}')
         if raise_mismatch: raise Exception(f'Pattern mismatch at {input.offset:0X}')
 
     datatype = _seek_int(input=input, length=1)
@@ -381,6 +381,6 @@ def _seek_end_section(input: types.AaBinStream, raise_mismatch: bool = True):
     # the mistake.
     value = _seek_bytes(input=input, length=8)
     if value != PATTERN_END:
-        warn(f'End Section unexpected value: {value}')
+        warn(f'End Section unexpected value: {value} at {input.offset:0X}')
         if raise_mismatch: raise Exception(f'Pattern mismatch at {input.offset:0X}')
     return value
