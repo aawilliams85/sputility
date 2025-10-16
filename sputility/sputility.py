@@ -45,11 +45,13 @@ class SPUtility(object):
                return file_name
 
         def _recurse(template: types.AaManifestTemplate):
+            print(template.tag_name)
             result = deserialize.aaobject_to_folder(_get_stream(_get_stream_filename(template.tag_name, template.file_name, template.is_protected), streams).data, output_path=aapkg_path)
             for child in template.derived_templates:
                 _recurse(child)
 
             for child in template.derived_instances:
+                print(child.file_name)
                 result = deserialize.aaobject_to_folder(_get_stream(child.file_name, streams).data, output_path=aapkg_path)
 
         for template in manifest.templates:

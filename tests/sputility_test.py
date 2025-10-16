@@ -35,6 +35,7 @@ class sputility_tests(unittest.TestCase):
         print('')
         for file in glob.glob(os.path.join(LOCAL_INPUT_AAPKG_PATH, '*.aaPKG')):
             spu = SPUtility()
+            print(file)
             resp = spu.deserialize_package(
                 input_path=file,
                 output_path=LOCAL_OUTPUT_AAPKG_DESERIALIZED_PATH,
