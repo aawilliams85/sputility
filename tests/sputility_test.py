@@ -41,6 +41,11 @@ class sputility_tests(unittest.TestCase):
                 output_path=LOCAL_OUTPUT_AAPKG_DESERIALIZED_PATH,
                 progress=None
             )
+            for obj in resp:
+                print(f'Parsed {obj.offset:0X} of {obj.size:0X} bytes, {(100.0 * obj.offset / obj.size):.1f}%')
+            #print(f'{len(resp.extensions)} extensions')
+            #for ext in resp.extensions:
+            #    print(f'Extension {ext.instance_id:0X} {ext.extension_name} has {len(ext.attributes)} attributes.')
 
     def test_deserialize_object(self):
         print('')
