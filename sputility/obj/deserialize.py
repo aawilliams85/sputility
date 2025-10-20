@@ -261,37 +261,37 @@ def _formatted_script_to_folder(extension: types.AaObjectExtension, output_path:
 
     if (len(script.content.aliases) > 0):
         file = os.path.join(ext_path, 'aliases.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write("\n".join(map(str, script.content.aliases)))
 
     if (len(script.content.declarations) > 0):
         file = os.path.join(ext_path, 'declarations.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write(script.content.declarations)
 
     if (len(script.content.body_text_execute) > 0):
         file = os.path.join(ext_path, 'execute.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write(script.content.body_text_execute)
 
     if (len(script.content.body_text_offscan) > 0):
         file = os.path.join(ext_path, 'offscan.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write(script.content.body_text_offscan)
 
     if (len(script.content.body_text_onscan) > 0):
         file = os.path.join(ext_path, 'onscan.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write(script.content.body_text_onscan) 
 
     if (len(script.content.body_text_shutdown) > 0):
         file = os.path.join(ext_path, 'shutdown.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write(script.content.body_text_shutdown)
 
     if (len(script.content.body_text_startup) > 0):
         file = os.path.join(ext_path, 'startup.txt')
-        with open(file, 'w', encoding='utf-8') as f:
+        with open(file, 'w', encoding='utf-8', newline='') as f:
             f.write(script.content.body_text_startup)
 
 def deserialize_aaobject(input: str| bytes) -> types.AaObject:
