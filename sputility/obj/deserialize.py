@@ -8,7 +8,7 @@ from . import enums
 from . import primitives
 from . import types
 
-PRINT_DEBUG_INFO = False
+PRINT_DEBUG_INFO = True
 PLACEHOLDER_ATTR_REFERENCE = '---.---'
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:
@@ -120,7 +120,30 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
     primitives._seek_forward(input=input, length=20) # header?
     parent_name = primitives._seek_string(input=input) # this object or parent inherited from
     primitives._seek_forward(input=input, length=596)
-    primitives._seek_forward(input=input, length=16) # header?
+
+    # WIP trying to suss out script library references
+    unk01 = primitives._seek_int(input=input)
+    unk02 = primitives._seek_int(input=input)
+    unk03 = primitives._seek_int(input=input)
+    unk04 = primitives._seek_int(input=input)
+    unk05 = primitives._lookahead_int(input=input)
+    scriptlibs_count = 0
+    if (extension_name.casefold() == enums.AaExtensionFormatted.ScriptExtension.casefold()):
+        #if (unk01 == 0x01) and (unk02 == 0x80) and (unk03 == 0x01) and (unk04 == 0x02) and (unk05 == 0x00):
+        if (unk01 == 0x01) and (unk05 == 0x00):
+            if PRINT_DEBUG_INFO: print(f'>>>>>>>> LOOKS LIKE SCRIPT SECTION WITH FUNCTION LIBRARY >>>>')
+            primitives._seek_forward(input=input, length=4)
+            scriptlibs_count = primitives._seek_int(input=input)
+
+    scriptlibs = []
+    if scriptlibs_count > 0:
+        for i in range(scriptlibs_count):
+            scriptlib_id = primitives._seek_int(input=input)
+            scriptlib_name = primitives._seek_string(input=input)
+            primitives._seek_forward(input=input, length=448)
+            scriptlib_source = primitives._seek_string(input=input)
+            primitives._seek_forward(input=input, length=448)
+
     attr_count = primitives._seek_int(input=input)
     if PRINT_DEBUG_INFO: print(f'>>>>>>>> EXPECTING {attr_count} ATTR1s >>>>')
     attrs = []
@@ -131,7 +154,8 @@ def _get_extension(input: types.AaBinStream) -> types.AaObjectExtension:
             attr.name = _get_attribute_fullname(section_name=instance_name, attribute_name=attr.name)
             attr.primitive_name = primitive_name
             attrs.append(attr)
-    primitives._seek_end_section(input=input)
+    if primitives._lookahead_pattern(input=input, pattern=primitives.PATTERN_END):
+        primitives._seek_end_section(input=input)
 
     # Message queues for this extension?
     # 1 - Object errors

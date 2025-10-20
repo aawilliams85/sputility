@@ -31,6 +31,7 @@ class AaDataType(IntEnum):
     ArrayDataTypeType = 74
 
 # These don't seem consistent between environments and might be meaningless
+# or mean something different
 class AaExtension(IntEnum):
     Unknown = -2
     Undefined = -1
