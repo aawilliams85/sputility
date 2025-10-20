@@ -8,7 +8,7 @@ from . import enums
 from . import primitives
 from . import types
 
-PRINT_DEBUG_INFO = False
+PRINT_DEBUG_INFO = True
 PLACEHOLDER_ATTR_REFERENCE = '---.---'
 
 def _get_header(input: types.AaBinStream) -> types.AaObjectHeader:

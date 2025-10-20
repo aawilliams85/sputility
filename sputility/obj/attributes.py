@@ -68,6 +68,8 @@ def get_attr_type2(input: types.AaBinStream) -> types.AaObjectAttribute:
             if slide_length > 13: raise Exception(f'Attribute longer than expected at offset {input.offset:0X}.')
 
     value = primitives._seek_object_value(input=input)
+    if (attr_type != value.datatype): print(f'Attribute type {attr_type:0X} {value.datatype:0X} at {input.offset:0X}.')
+
     return types.AaObjectAttribute(
         offset=offset,
         id=id,

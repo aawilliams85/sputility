@@ -60,8 +60,8 @@ class sputility_tests(unittest.TestCase):
             print(f'Parsed {resp.offset:0X} of {resp.size:0X} bytes, {(100.0 * resp.offset / resp.size):.1f}%')
             #pprint.pprint(resp.header)
             #print(f'{len(resp.extensions)} extensions')
-            #for ext in resp.extensions:
-            #    print(f'Extension {ext.instance_id:0X} {ext.extension_name} has {len(ext.attributes)} attributes.')
+            for ext in resp.extensions:
+                print(f'Extension {ext.instance_id:0X} {ext.extension_name} has {len(ext.attributes)} attributes.')
             #    #print(f'{len(section.attributes)} attrs')
             #    #print(f'Primitive name: {section.primitive_name}, Count: {len(section.attributes)}')
             #    #for attr in section.attributes:
